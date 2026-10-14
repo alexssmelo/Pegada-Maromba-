@@ -20,6 +20,10 @@
   .wrap { max-width:760px; margin:0 auto; padding:16px; }
   header.top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:var(--ink); color:var(--bg); }
   header.top b { font-family:var(--display); font-size:1.5rem; text-transform:uppercase; letter-spacing:.03em; }
+  header.top .brand { display:flex; align-items:center; gap:10px; } header.top img { height:36px; width:36px; border-radius:8px; object-fit:contain; background:#fff; }
+  .sw { width:40px; height:40px; border-radius:50%; border:3px solid transparent; padding:0; min-height:0; } .sw.on { border-color:var(--ink); }
+  .prev { border-radius:12px; padding:14px; display:flex; align-items:center; gap:12px; margin:10px 0; } .prev img { height:48px; width:48px; border-radius:10px; object-fit:contain; background:#fff; }
+  .prev b { font-family:var(--display); font-size:1.6rem; text-transform:uppercase; }
   header.top button { background:transparent; color:inherit; border:1px solid currentColor; }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin:12px 0; }
   label { display:block; font-weight:600; margin:12px 0 4px; }
@@ -42,6 +46,10 @@
   .pill { font-size:.8rem; padding:2px 10px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
   .pill.on { color:var(--good); border-color:var(--good); }
   .code { font-family:var(--display); font-size:2.6rem; letter-spacing:.12em; font-weight:800; margin:6px 0; word-break:break-all; }
+  .ex { display:grid; grid-template-columns: 1fr 64px 76px 76px; gap:8px; padding:10px 0; border-top:1px solid var(--line); align-items:end; }
+  .ex .full { grid-column:1 / -1; } .ex label { margin:0 0 2px; font-size:.8rem; color:var(--muted); font-weight:400; }
+  .ex .acoes { grid-column:1 / -1; display:flex; gap:6px; justify-content:flex-end; } .ex .acoes button { min-height:38px; padding:6px 12px; }
+  .sticky { position:sticky; bottom:0; background:var(--bg); padding:10px 0; display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--line); }
   .hide { display:none !important; }
   .center { text-align:center; padding:48px 16px; }
 </style>
@@ -82,14 +90,49 @@
 
 <!-- Painel -->
 <div id="v-main" class="hide">
-  <header class="top"><b id="m-gym">Academia</b><span class="row"><span class="muted" id="m-user" style="color:inherit;opacity:.8"></span><button id="b-sair2">Sair</button></span></header>
+  <header class="top"><span class="brand"><img id="m-logo" class="hide" alt=""><b id="m-gym">Academia</b></span><span class="row"><span class="muted" id="m-user" style="color:inherit;opacity:.8"></span><button id="b-sair2">Sair</button></span></header>
   <div class="wrap">
-    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button></div>
+    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button><button id="t-marca">Marca</button></div>
 
     <section id="p-alunos">
       <div class="row"><div class="grow"><input id="a-busca" placeholder="Buscar aluno por nome ou e-mail" type="search"></div>
         <div><select id="a-filtro"><option value="todos">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select></div></div>
       <div class="card" id="a-lista"><p class="muted">Carregando alunos…</p></div>
+    </section>
+
+    <section id="p-ficha" class="hide">
+      <div class="row"><button class="sec" id="f-voltar">← Alunos</button><h2 id="f-titulo" style="margin:0">Ficha</h2></div>
+      <div class="card">
+        <label for="f-nome">Nome da ficha</label><input id="f-nome" placeholder="Ex.: Hipertrofia — fase 1">
+        <div class="row" style="margin-top:12px">
+          <div class="grow"><select id="f-copiar"><option value="">Copiar ficha de outro aluno…</option></select></div><button class="sec" id="f-copiar-ok">Copiar</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="grow"><select id="f-modelo"><option value="">Usar um modelo…</option></select></div><button class="sec" id="f-modelo-ok">Usar</button>
+        </div>
+      </div>
+      <div id="f-dias"></div>
+      <button class="sec" id="f-add-dia">+ Adicionar dia de treino</button>
+      <datalist id="f-lib"></datalist>
+      <div class="sticky"><button id="f-salvar">Salvar ficha</button><button class="sec" id="f-modelo-salvar">Salvar como modelo</button><span id="f-msg" class="ok" style="align-self:center"></span></div>
+    </section>
+
+    <section id="p-marca" class="hide">
+      <div class="card">
+        <h2>Marca da academia</h2>
+        <p class="muted">Seu nome, logo e cor aparecem no app dos seus alunos.</p>
+        <label for="k-nome">Nome da academia</label><input id="k-nome" maxlength="40">
+        <label>Cor de destaque</label>
+        <div class="row" id="k-cores" style="gap:8px"></div>
+        <div class="row" style="margin-top:8px"><label for="k-cor" style="margin:0">Outra cor:</label><input type="color" id="k-cor" style="width:64px;padding:2px;height:44px"></div>
+        <label for="k-logo">Logo (PNG ou JPG)</label>
+        <input type="file" id="k-logo" accept="image/png,image/jpeg,image/webp">
+        <div class="row" style="margin-top:6px"><button class="sec" id="k-logo-rm">Remover logo</button></div>
+        <label>Prévia no app do aluno</label>
+        <div class="prev" id="k-prev"><img id="k-prev-img" class="hide" alt=""><b id="k-prev-nome"></b></div>
+        <div class="row"><button id="k-salvar">Salvar marca</button><span id="k-msg" class="ok"></span></div>
+        <p class="muted" id="k-aviso"></p>
+      </div>
     </section>
 
     <section id="p-convite" class="hide">
@@ -122,15 +165,15 @@ const MSG = {
 };
 const erro = e => MSG[e && e.code] || ('Algo deu errado' + (e && e.code ? ' (' + e.code + ')' : '') + '.');
 
-let A, AU, FS, auth, db;
+let A, AU, FS, SS, auth, db, storage;
 try {
-  [A, AU, FS] = await Promise.all([import(CDN + 'firebase-app.js'), import(CDN + 'firebase-auth.js'), import(CDN + 'firebase-firestore.js')]);
+  [A, AU, FS, SS] = await Promise.all([import(CDN + 'firebase-app.js'), import(CDN + 'firebase-auth.js'), import(CDN + 'firebase-firestore.js'), import(CDN + 'firebase-storage.js')]);
 } catch {
   $('v-load').innerHTML = '<h1>Sem conexão</h1><p class="muted">Não consegui carregar. Verifique a internet e recarregue a página.</p>';
   throw new Error('firebase-offline');
 }
 const app = A.initializeApp(firebaseConfig);
-auth = AU.getAuth(app); db = FS.getFirestore(app);
+auth = AU.getAuth(app); db = FS.getFirestore(app); storage = SS.getStorage(app);
 
 let me = null, gymId = null, gym = null, alunos = [];
 
@@ -197,11 +240,13 @@ function desenharAlunos() {
     const st = a.status || 'ativo';
     return `<div class="aluno"><div class="grow" style="flex:1"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div></div>
       <span class="pill ${st === 'ativo' ? 'on' : ''}">${st === 'ativo' ? 'Ativo' : 'Inativo'}</span>
-      <button class="sec" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div>`;
+      <button data-act="ficha" data-uid="${esc(a.uid)}">Ficha</button>
+      <button class="sec" data-act="status" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div>`;
   }).join('');
 }
 $('a-lista').onclick = async ev => {
   const b = ev.target.closest('button[data-uid]'); if (!b) return;
+  if (b.dataset.act === 'ficha') return abrirFicha(b.dataset.uid);
   const novo = b.dataset.st === 'ativo' ? 'inativo' : 'ativo';
   b.disabled = true;
   try { await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', b.dataset.uid), { status: novo });
@@ -226,9 +271,164 @@ $('c-novo').onclick = async () => {
 };
 
 /* ---------- abas ---------- */
-function aba(n) { $('p-alunos').classList.toggle('hide', n !== 'alunos'); $('p-convite').classList.toggle('hide', n !== 'convite');
+function aba(n) { $('p-alunos').classList.toggle('hide', n !== 'alunos'); $('p-convite').classList.toggle('hide', n !== 'convite'); $('p-ficha').classList.toggle('hide', n !== 'ficha'); $('p-marca').classList.toggle('hide', n !== 'marca'); $('t-marca').classList.toggle('on', n === 'marca');
   $('t-alunos').classList.toggle('on', n === 'alunos'); $('t-convite').classList.toggle('on', n === 'convite'); }
-$('t-alunos').onclick = () => aba('alunos'); $('t-convite').onclick = () => aba('convite');
+$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-convite').onclick = () => aba('convite');
+
+
+/* ---------- marca da academia (nome, logo, cor) ---------- */
+const CORES = ['#6A3DF0', '#1D5FD8', '#0E8A83', '#1E8E4E', '#D4590F', '#D6336C', '#C62828', '#1A0F33'];
+const okHex = h => /^#[0-9a-f]{6}$/i.test(h || '');
+const lumHex = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const tinta = h => lumHex(h) > 0.179 ? '#140A2B' : '#FFFFFF';
+let K = null;                                  // rascunho: { nome, cor, logoUrl, logoBlob }
+function aplicarMarca() {                      // cabeçalho do painel
+  const cor = okHex(gym.corDestaque) ? gym.corDestaque : '#1A0F33', t = tinta(cor), h = document.querySelector('header.top');
+  h.style.background = cor; h.style.color = t; document.querySelector('meta[name=theme-color]').content = cor;
+  const img = $('m-logo'); if (gym.logoUrl) { img.src = gym.logoUrl; img.classList.remove('hide'); } else img.classList.add('hide');
+  $('m-gym').textContent = gym.nome;
+}
+function previaMarca() {
+  const cor = okHex(K.cor) ? K.cor : '#6A3DF0', pv = $('k-prev');
+  pv.style.background = cor; pv.style.color = tinta(cor); $('k-prev-nome').textContent = K.nome || 'Sua academia';
+  const src = K.logoBlob ? URL.createObjectURL(K.logoBlob) : K.logoUrl; const im = $('k-prev-img');
+  if (src) { im.src = src; im.classList.remove('hide'); } else im.classList.add('hide');
+  $('k-cores').innerHTML = CORES.map(c => `<button type="button" class="sw ${c.toLowerCase() === cor.toLowerCase() ? 'on' : ''}" data-c="${c}" style="background:${c}" aria-label="Cor ${c}"></button>`).join('');
+  $('k-cor').value = cor;
+}
+function abrirMarca() {
+  K = { nome: gym.nome || '', cor: okHex(gym.corDestaque) ? gym.corDestaque : '#6A3DF0', logoUrl: gym.logoUrl || '', logoBlob: null };
+  $('k-nome').value = K.nome; $('k-msg').textContent = ''; $('k-logo').value = '';
+  $('k-aviso').textContent = gym.role === 'owner' ? '' : 'Só o dono da academia pode alterar a marca.'; $('k-salvar').disabled = gym.role !== 'owner';
+  previaMarca();
+}
+$('k-nome').oninput = () => { K.nome = $('k-nome').value; previaMarca(); };
+$('k-cores').onclick = ev => { const b = ev.target.closest('[data-c]'); if (b) { K.cor = b.dataset.c; previaMarca(); } };
+$('k-cor').oninput = () => { K.cor = $('k-cor').value; previaMarca(); };
+$('k-logo-rm').onclick = () => { K.logoUrl = ''; K.logoBlob = null; $('k-logo').value = ''; previaMarca(); };
+$('k-logo').onchange = async () => {
+  const f = $('k-logo').files[0]; if (!f) return; const km = t => { $('k-msg').className = 'err'; $('k-msg').textContent = t; };
+  if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return km('Use uma imagem PNG, JPG ou WEBP.');
+  if (f.size > 8 * 1024 * 1024) return km('Imagem muito grande (máximo 8 MB).');
+  try {                                         // reduz para no máximo 256 px, mantendo a proporção
+    const bmp = await createImageBitmap(f), r = Math.min(1, 256 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * r)); c.height = Math.max(1, Math.round(bmp.height * r));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    K.logoBlob = await new Promise(res => c.toBlob(res, 'image/png')); $('k-msg').textContent = ''; previaMarca();
+  } catch { km('Não consegui ler essa imagem.'); }
+};
+$('k-salvar').onclick = async () => {
+  const nome = K.nome.trim(); const km = (t, ok) => { $('k-msg').className = ok ? 'ok' : 'err'; $('k-msg').textContent = t; };
+  if (nome.length < 2) return km('Digite o nome da academia.');
+  $('k-salvar').disabled = true; km('Salvando…', true);
+  try {
+    let logoUrl = K.logoUrl;
+    if (K.logoBlob) { const r = SS.ref(storage, `gyms/${gymId}/logo/logo.png`); await SS.uploadBytes(r, K.logoBlob, { contentType: 'image/png' }); logoUrl = await SS.getDownloadURL(r); }
+    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { nome, corDestaque: K.cor, logoUrl: logoUrl || '' });
+    Object.assign(gym, { nome, corDestaque: K.cor, logoUrl: logoUrl || '' }); K.logoUrl = logoUrl || ''; K.logoBlob = null; aplicarMarca(); km('Marca salva. Os alunos veem na próxima vez que abrirem o app.', true);
+  } catch (e) { km(erro(e)); }
+  $('k-salvar').disabled = false;
+};
+
+/* ---------- ficha de treino ---------- */
+import { EXERCICIOS } from './exercicios.js';
+let F = null;                       // { uid, nome, plano: { nome, dias: [...] } }
+const novoEx = () => ({ n: '', s: 3, r: '12', kg: '', obs: '' });
+const novoDia = (i) => ({ nome: String.fromCharCode(65 + (i || 0)), descanso: 60, ex: [novoEx()] });
+$('f-lib').innerHTML = EXERCICIOS.map(e => `<option value="${esc(e.n)}"></option>`).join('');
+const limpaDias = dias => (dias || []).map(d => ({ nome: String(d.nome || '').slice(0, 30), descanso: Math.min(600, Math.max(0, parseInt(d.descanso, 10) || 60)),
+  ex: (d.ex || []).filter(e => String(e.n || '').trim()).map(e => { const lib = EXERCICIOS.find(x => x.n === String(e.n).trim());
+    return { n: String(e.n).trim().slice(0, 120), s: Math.min(12, Math.max(1, parseInt(e.s, 10) || 3)), r: String(e.r || '12').slice(0, 20), kg: String(e.kg || '').slice(0, 10), obs: String(e.obs || '').slice(0, 300), ...(lib ? { id: lib.id } : {}) }; }) }))
+  .filter(d => d.ex.length);
+
+async function abrirFicha(uid) {
+  const a = alunos.find(x => x.uid === uid); if (!a) return;
+  F = { uid, nome: a.nome || 'Aluno', plano: { nome: '', dias: [novoDia(0)] } };
+  $('f-titulo').textContent = 'Ficha de ' + F.nome; $('f-msg').textContent = '';
+  $('f-copiar').innerHTML = '<option value="">Copiar ficha de outro aluno…</option>' + alunos.filter(x => x.uid !== uid).map(x => `<option value="${esc(x.uid)}">${esc(x.nome || x.email)}</option>`).join('');
+  $('f-modelo').innerHTML = '<option value="">Usar um modelo…</option>';
+  document.querySelector('.tabs').classList.add('hide'); aba('ficha'); desenharFicha();
+  try {
+    const d = await FS.getDoc(FS.doc(db, 'gyms', gymId, 'students', uid, 'plans', 'atual'));
+    if (d.exists() && F && F.uid === uid) { const p = d.data(); F.plano = { nome: p.nome || '', dias: (p.dias && p.dias.length ? p.dias : [novoDia(0)]).map(x => ({ ...x, ex: (x.ex || []).map(e => ({ ...e })) })) }; desenharFicha(); }
+  } catch (e) { $('f-msg').className = 'err'; $('f-msg').textContent = erro(e); }
+  try {
+    const m = await FS.getDocs(FS.collection(db, 'gyms', gymId, 'templates')); F.modelos = m.docs.map(x => ({ id: x.id, ...x.data() }));
+    $('f-modelo').innerHTML = '<option value="">Usar um modelo…</option>' + F.modelos.map(x => `<option value="${esc(x.id)}">${esc(x.nome || 'Modelo')}</option>`).join('');
+  } catch {}
+}
+function fecharFicha() { F = null; document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); }
+
+function desenharFicha() {
+  $('f-nome').value = F.plano.nome || '';
+  $('f-dias').innerHTML = F.plano.dias.map((d, i) => `<div class="card" data-d="${i}">
+    <div class="row"><div class="grow"><label>Dia / treino</label><input data-f="nome" value="${esc(d.nome)}" placeholder="A, B, C… ou Peito e tríceps"></div>
+      <div style="width:120px"><label>Descanso (s)</label><input data-f="descanso" inputmode="numeric" value="${esc(d.descanso)}"></div></div>
+    ${d.ex.map((e, j) => `<div class="ex" data-e="${j}">
+      <div class="full"><label>Exercício</label><input data-f="n" list="f-lib" value="${esc(e.n)}" placeholder="Digite ou escolha da lista"></div>
+      <div><label>Séries</label><input data-f="s" inputmode="numeric" value="${esc(e.s)}"></div>
+      <div><label>Reps</label><input data-f="r" value="${esc(e.r)}"></div>
+      <div><label>Carga (kg)</label><input data-f="kg" inputmode="decimal" value="${esc(e.kg)}"></div>
+      <div class="full"><label>Observação</label><input data-f="obs" value="${esc(e.obs)}" placeholder="Ex.: cadência lenta, pegada neutra"></div>
+      <div class="acoes"><button class="sec" data-a="sobe" aria-label="Subir">↑</button><button class="sec" data-a="desce" aria-label="Descer">↓</button><button class="danger" data-a="rm-ex" aria-label="Remover exercício">Remover</button></div>
+    </div>`).join('')}
+    <div class="row" style="margin-top:10px"><button class="sec" data-a="add-ex">+ Exercício</button><button class="sec" data-a="dup-dia">Duplicar dia</button><button class="danger" data-a="rm-dia">Remover dia</button></div>
+  </div>`).join('');
+}
+$('f-nome').oninput = () => { if (F) F.plano.nome = $('f-nome').value; };
+$('f-dias').oninput = ev => {
+  const i = ev.target.dataset.f; if (!i || !F) return;
+  const dc = ev.target.closest('[data-d]'), ec = ev.target.closest('[data-e]'); const d = F.plano.dias[+dc.dataset.d];
+  if (ec) d.ex[+ec.dataset.e][i] = ev.target.value; else d[i] = ev.target.value;
+};
+$('f-dias').onclick = ev => {
+  const b = ev.target.closest('button[data-a]'); if (!b || !F) return;
+  const dc = b.closest('[data-d]'), di = +dc.dataset.d, d = F.plano.dias[di], ec = b.closest('[data-e]'), ei = ec ? +ec.dataset.e : -1, a = b.dataset.a;
+  if (a === 'add-ex') d.ex.push(novoEx());
+  else if (a === 'rm-ex') { d.ex.splice(ei, 1); if (!d.ex.length) d.ex.push(novoEx()); }
+  else if (a === 'sobe' && ei > 0) [d.ex[ei - 1], d.ex[ei]] = [d.ex[ei], d.ex[ei - 1]];
+  else if (a === 'desce' && ei < d.ex.length - 1) [d.ex[ei + 1], d.ex[ei]] = [d.ex[ei], d.ex[ei + 1]];
+  else if (a === 'dup-dia') F.plano.dias.splice(di + 1, 0, { ...d, nome: d.nome + ' (cópia)', ex: d.ex.map(e => ({ ...e })) });
+  else if (a === 'rm-dia') { if (F.plano.dias.length > 1 && confirm('Remover este dia de treino?')) F.plano.dias.splice(di, 1); }
+  desenharFicha();
+};
+$('f-add-dia').onclick = () => { F.plano.dias.push(novoDia(F.plano.dias.length)); desenharFicha(); };
+$('f-voltar').onclick = () => { if (!confirm('Sair da ficha? Alterações não salvas serão perdidas.')) return; fecharFicha(); };
+const fmsg = (t, ok = true) => { $('f-msg').className = ok ? 'ok' : 'err'; $('f-msg').textContent = t; };
+$('f-salvar').onclick = async () => {
+  const dias = limpaDias(F.plano.dias);
+  if (!dias.length) return fmsg('Preencha pelo menos um exercício.', false);
+  $('f-salvar').disabled = true;
+  try {
+    await FS.setDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid, 'plans', 'atual'), { nome: String(F.plano.nome || '').slice(0, 80), dias, atualizadoEm: new Date().toISOString(), atualizadoPor: me.uid });
+    F.plano.dias = dias; desenharFicha(); fmsg('Ficha salva. O aluno já vê no app.');
+  } catch (e) { fmsg(erro(e), false); }
+  $('f-salvar').disabled = false;
+};
+$('f-copiar-ok').onclick = async () => {
+  const uid = $('f-copiar').value; if (!uid) return;
+  try {
+    const d = await FS.getDoc(FS.doc(db, 'gyms', gymId, 'students', uid, 'plans', 'atual'));
+    if (!d.exists()) return fmsg('Esse aluno ainda não tem ficha.', false);
+    if (!confirm('Substituir a ficha atual pela cópia?')) return;
+    const p = d.data(); F.plano = { nome: p.nome || '', dias: p.dias.map(x => ({ ...x, ex: x.ex.map(e => ({ ...e })) })) }; desenharFicha(); fmsg('Copiada. Lembre de salvar.');
+  } catch (e) { fmsg(erro(e), false); }
+};
+$('f-modelo-ok').onclick = () => {
+  const m = (F.modelos || []).find(x => x.id === $('f-modelo').value); if (!m) return;
+  if (!confirm('Substituir a ficha atual pelo modelo?')) return;
+  F.plano = { nome: m.nome || '', dias: m.dias.map(x => ({ ...x, ex: x.ex.map(e => ({ ...e })) })) }; desenharFicha(); fmsg('Modelo aplicado. Lembre de salvar.');
+};
+$('f-modelo-salvar').onclick = async () => {
+  const dias = limpaDias(F.plano.dias); if (!dias.length) return fmsg('Preencha pelo menos um exercício.', false);
+  const nome = prompt('Nome do modelo:', F.plano.nome || ''); if (!nome || !nome.trim()) return;
+  try {
+    const ref = FS.doc(FS.collection(db, 'gyms', gymId, 'templates'));
+    const t = { nome: nome.trim().slice(0, 80), dias, criadoEm: new Date().toISOString(), criadoPor: me.uid };
+    await FS.setDoc(ref, t); (F.modelos = F.modelos || []).push({ id: ref.id, ...t });
+    $('f-modelo').innerHTML = '<option value="">Usar um modelo…</option>' + F.modelos.map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join(''); fmsg('Modelo salvo.');
+  } catch (e) { fmsg(erro(e), false); }
+};
 
 /* ---------- início ---------- */
 async function iniciar() {
@@ -236,7 +436,7 @@ async function iniciar() {
   try {
     const g = await carregarAcademia();
     if (!g) { show('v-setup'); return; }
-    $('m-gym').textContent = g.nome; $('m-user').textContent = me.displayName || me.email || '';
+    $('t-marca').classList.toggle('hide', g.role !== 'owner'); aplicarMarca(); $('m-user').textContent = me.displayName || me.email || '';
     document.title = g.nome + ' — painel';
     mostrarCodigo(); aba('alunos'); show('v-main'); carregarAlunos();
   } catch (e) {

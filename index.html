@@ -658,11 +658,30 @@
   const loadPrefs = () => Object.assign({ weight: 70, act: 'run', voice: true, mode: 'all', vol: 50, theme: 'auto', zoom: 1, goal: 3, pace: 0, accent: '', warm: false, stretch: false, rgoal: '', autop: false, remind: { days: [1, 3, 5], time: '18:00' } }, store.get(SET_KEY, {}));
   let prefs = loadPrefs();
   function savePrefs() { prefs.t = Date.now(); store.set(SET_KEY, prefs); changed(); }
+  /* marca da academia (nome, logo e cor) para quem é aluno */
+  let Brand = { nome: '', cor: '', logo: '' };
+  try { const b = JSON.parse(localStorage.getItem('treino.brand') || 'null'); if (b && typeof b === 'object') Brand = { nome: String(b.nome || ''), cor: String(b.cor || ''), logo: String(b.logo || '') }; } catch {}
+  function applyBrand() {
+    const br = document.querySelector('.top-row .brand'); if (!br) return;
+    const h1 = br.querySelector('h1'), svg = br.querySelector('svg.logo, img.logo');
+    if (h1) h1.textContent = Brand.nome || 'Treino';
+    if (Brand.logo && /^https:\/\//.test(Brand.logo)) {
+      if (svg && svg.tagName.toLowerCase() === 'svg') { svg.dataset.orig = '1'; svg.style.display = 'none'; }
+      let im = br.querySelector('img.logo'); if (!im) { im = document.createElement('img'); im.className = 'logo'; im.alt = ''; im.style.cssText = 'width:36px;height:36px;border-radius:10px;object-fit:contain;background:#fff'; br.insertBefore(im, br.firstChild); }
+      im.src = Brand.logo;
+    } else { const im = br.querySelector('img.logo'); if (im) im.remove(); const sv = br.querySelector('svg.logo'); if (sv) sv.style.display = ''; }
+    document.title = Brand.nome || 'Treino';
+  }
+  function setBrand(b) {
+    Brand = b ? { nome: b.nome || '', cor: b.cor || '', logo: b.logo || '' } : { nome: '', cor: '', logo: '' };
+    try { localStorage.setItem('treino.brand', JSON.stringify(Brand)); } catch {}
+    applyBrand(); applyLook();
+  }
   function applyLook() {
     const r = document.documentElement;
     if (prefs.theme === 'light' || prefs.theme === 'dark') r.dataset.theme = prefs.theme; else delete r.dataset.theme;
     r.style.zoom = prefs.zoom > 1 ? String(prefs.zoom) : '';
-    const hex = /^#[0-9a-f]{6}$/i.test(prefs.accent || '') ? prefs.accent : '';
+    const hex = /^#[0-9a-f]{6}$/i.test(prefs.accent || '') ? prefs.accent : (/^#[0-9a-f]{6}$/i.test(Brand.cor || '') ? Brand.cor : '');
     if (!hex) { r.style.removeProperty('--accent'); r.style.removeProperty('--accent-ink'); return; }
     const dark = prefs.theme === 'dark' || (prefs.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
     const pr = ACCENTS.find(a => a[1].toLowerCase() === hex.toLowerCase());
@@ -674,7 +693,7 @@
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const lum = h => { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   const mixWhite = (h, t) => '#' + rgb(h).map(v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('');
-  applyLook();
+  applyLook(); applyBrand();
   if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook); } catch {} }
   const parsePace = t => { const m = String(t).trim().match(/^(\d{1,2})(?::(\d{2}))?$/); if (!m) return 0; const sec = +m[1] * 60 + (m[2] ? +m[2] : 0); return sec >= 120 && sec <= 1200 ? sec : 0; };
 
@@ -2446,8 +2465,8 @@
     const next = u ? u.uid : '';
     Acct.user = u ? { uid: u.uid, name: u.name || '', email: u.email || '' } : null;
     try { u ? localStorage.setItem('treino.lastUser', JSON.stringify(Acct.user)) : localStorage.removeItem('treino.lastUser'); } catch {}
-    Acct.admin = false; Acct.gym = undefined;
-    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
+    Acct.admin = false; Acct.gym = undefined; if (!u) setBrand(null);
+    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
     if (u && window.TreinoCloud && window.TreinoCloud.isAdmin) window.TreinoCloud.isAdmin().then(v => { Acct.admin = v; if ($('#acct').open) renderAcct(); });
     if (u) setTimeout(maybeIntro, 1200);
     if (next !== ns) {
@@ -2648,7 +2667,7 @@
       if (!$('#gym-ok').checked) { msg.textContent = 'Marque a autorização para continuar.'; return; }
       if (!C || !C.joinGym) { msg.textContent = 'Sem conexão com o servidor.'; return; }
       b.disabled = true; msg.textContent = 'Entrando…';
-      try { Acct.gym = await C.joinGym(code); renderAcct(); }
+      try { Acct.gym = await C.joinGym(code); setBrand(Acct.gym && Acct.gym.role === 'student' ? Acct.gym : null); renderAcct(); }
       catch (er) { b.disabled = false; msg.textContent = GYM_ERR[er && er.code] || 'Não foi possível entrar agora. Tente de novo.'; }
     }
     else if (a === 'admin') { $('#acct').close(); openAdmin(); }
