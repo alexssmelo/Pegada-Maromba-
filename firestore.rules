@@ -34,6 +34,7 @@ service cloud.firestore {
         match /plans/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
         match /assessments/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
         match /workouts/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid) && membro(gymId); allow delete: if (ehProprio(uid) && membro(gymId)) || ehEquipe(gymId); }
+        match /checkins/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid) && membro(gymId) && request.resource.data.token == get(/databases/$(database)/documents/gyms/$(gymId)).data.checkinToken; allow delete: if ehProprio(uid) || ehEquipe(gymId); }
         match /consent/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid); }
       }
       match /templates/{id} { allow read, write: if ehEquipe(gymId); }

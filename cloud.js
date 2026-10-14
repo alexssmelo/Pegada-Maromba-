@@ -39,6 +39,7 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
     return { ...rest, route };
   };
 
+  let lastStat = '';
   let syncing = false, again = false, timer = null, lastProf = 0;
 
   // Resumo do usuário para o painel do administrador (sem trajetos, cargas, peso ou fotos).
@@ -98,6 +99,11 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
           const col = FS.collection(db, 'gyms', g.id, 'students', u.uid, 'workouts');
           const have = new Set((await FS.getDocs(col)).docs.map(d => d.id));
           const novos = merged.history.filter(h => h.date >= (g.desde || '') && !have.has(String(h.id)) && !merged.deleted[h.id]);
+          const meus = merged.history.filter(h => h.date >= (g.desde || '') && !merged.deleted[h.id]);
+          if (meus.length) {                                         // resumo para o painel: "sem treinar há X dias"
+            const ult = meus.reduce((m, h) => (h.date > m ? h.date : m), ''), chave = ult + '|' + meus.length;
+            if (chave !== lastStat) { await FS.updateDoc(FS.doc(db, 'gyms', g.id, 'students', u.uid), { ultimoTreino: ult, treinos: meus.length }); lastStat = chave; }
+          }
           for (let i = 0; i < novos.length; i += 400) {
             const b = FS.writeBatch(db);
             novos.slice(i, i + 400).forEach(h => b.set(FS.doc(db, 'gyms', g.id, 'students', u.uid, 'workouts', String(h.id)), clean(resumo(h))));
@@ -151,6 +157,24 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
     const d = await FS.getDoc(FS.doc(db, 'gyms', g.id, 'students', auth.currentUser.uid, 'plans', 'atual'));
     return d.exists() ? d.data() : null;
   }
+  async function getMe() {
+    const g = await gymInfo(); if (!g || g.role !== 'student') return null;
+    const d = await FS.getDoc(FS.doc(db, 'gyms', g.id, 'students', auth.currentUser.uid)); return d.exists() ? d.data() : null;
+  }
+  async function getRecado() {
+    const g = await gymInfo(); if (!g || g.role !== 'student') return null;
+    const d = await FS.getDoc(FS.doc(db, 'gyms', g.id, 'students', auth.currentUser.uid, 'plans', 'recado')); return d.exists() ? d.data() : null;
+  }
+  const hojeLocal = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  async function checkin(ref) {                                       // QR da academia: "idDaAcademia.token"
+    const [gid, token] = String(ref || '').split('.'); const g = await gymInfo();
+    if (!g || g.role !== 'student') throw erroCode('treino/checkin-sem-academia');
+    if (!gid || !token || g.id !== gid) throw erroCode('treino/checkin-outra');
+    const u = auth.currentUser, dia = hojeLocal(), agora = new Date().toISOString();
+    await FS.setDoc(FS.doc(db, 'gyms', g.id, 'students', u.uid, 'checkins', dia), { token, data: dia, em: agora });
+    try { await FS.updateDoc(FS.doc(db, 'gyms', g.id, 'students', u.uid), { ultimoCheckin: agora }); } catch {}
+    return { academia: g.nome, dia };
+  }
   async function getAssessments() {
     const g = await gymInfo(); if (!g || g.role !== 'student') return [];
     const s = await FS.getDocs(FS.collection(db, 'gyms', g.id, 'students', auth.currentUser.uid, 'assessments'));
@@ -165,7 +189,7 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
   }
 
   window.TreinoCloud = {
-    gymInfo, joinGym, getPlan, getAssessments, fotoUrl,
+    gymInfo, joinGym, getPlan, getAssessments, fotoUrl, getMe, getRecado, checkin,
     sync,
     async signIn(email, pass) { await AU.signInWithEmailAndPassword(auth, email, pass); },
     async signUp(name, email, pass) {

@@ -29,3 +29,9 @@ O professor gera um convite (código). O aluno cria conta, digita o código e vi
 - students/{uid}/assessments/{id}: { data, sexo, nascimento, peso, altura, medidas{}, protocolo (p3|p7|manual), dobras{}, gorduraManual, imc, gordura, massaMagra, massaGorda, fotos{frente,lado,costas = caminho no Storage}, obs }
 - students/{uid}/workouts/{id}: resumo dos treinos feitos (o app do aluno envia só os feitos depois de entrar na academia).
 - Cálculo de gordura: Jackson & Pollock (3 e 7 dobras) + Siri.
+
+## Novidades (alertas, recado, QR, meta)
+- gyms/{id}: + checkinToken (QR de presença), fichaSemanas (4/6/8/12, padrão 8).
+- students/{uid}: + telefone, fichaEm, proximaAval (AAAA-MM-DD), meta { tipo: gordura|peso|cintura|massaMagra, alvo, inicio, dataInicio }, ultimoTreino, treinos, ultimoCheckin.
+- students/{uid}/plans/recado: { texto, em, por } (o professor escreve, o aluno lê).
+- students/{uid}/checkins/{AAAA-MM-DD}: { token, data, em } (presença pelo QR; o token precisa ser o do QR atual).

@@ -424,6 +424,7 @@
 <div class="app">
   <header class="top">
     <div class="top-row"><div class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#1A0F33"/><circle cx="256" cy="282" r="150" fill="none" stroke="#3B2D63" stroke-width="40"/><path d="M256 132 A150 150 0 1 1 112 322" fill="none" stroke="#A187FF" stroke-width="40" stroke-linecap="round"/><path d="M276 214 L222 292 H258 L242 352 L300 268 H264 Z" fill="#FF7A4D"/></svg><h1>Treino</h1></div><button class="acct-btn" id="btn-acct" hidden>Conta</button></div>
+    <div id="avisos"></div>
   </header>
 
   <!-- TREINO -->
@@ -1353,6 +1354,9 @@
     const C = window.TreinoCloud; if (!C || !C.getPlan || !Acct.gym || Acct.gym.role !== 'student') return;
     if (!force && Date.now() - profAt < 60000) return; profAt = Date.now();
     C.getPlan().then(p => setProfPlan(p)).catch(() => {});
+    if (C.getMe) C.getMe().then(m => { Acct.me = m; renderAvisos(); }).catch(() => {});
+    if (C.getRecado) C.getRecado().then(r => { Acct.rec = r; renderAvisos(); }).catch(() => {});
+    if (C.getAssessments) C.getAssessments().then(a => { Acct.aval = a; renderAvisos(); }).catch(() => {});
   }
   function setProfPlan(p) {
     if (p && p.dias && p.dias.length) store.set(PROF_KEY, p); else store.del(PROF_KEY);
@@ -1367,10 +1371,12 @@
   function gymSave(g, L) { if (profMode()) return; g[L].t = Date.now(); store.set(GYM_KEY, g); changed(); }
   const repsTxt = r => /^\d/.test(String(r)) ? `${r} repetições` : String(r);
   const clampInt = (v, lo, hi, d) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); return isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
-  function lastGym(name) {
+  function lastGym(name, skip) {
+    let k = skip || 0;
     for (const h of store.get(HIST_KEY, [])) {
       if (h.act !== 'gym' || !h.gym) continue;
       const e = h.gym.find(x => x.n === name);
+      if (e && k-- > 0) continue;
       if (e) return { kg: e.kg, sets: e.sets, r: e.r, date: h.date, log: e.log || null };
     }
     return null;
@@ -1484,7 +1490,9 @@
         const kgs = lg.log.map(x => toNum(x.kg)).filter(x => !isNaN(x));
         const tgt = parseInt(String(st.r || '').match(/\d+/));
         const easy = kgs.length && lg.log.length >= st.rounds && tgt && lg.log.every(x => parseInt(x.r) >= tgt);
-        lastEl.textContent = `Última vez (${d}): ` + lg.log.map(x => `${x.kg ? fk(x.kg) + ' kg' : 'sem carga'} × ${x.r}`).join(', ') + '.' + (easy ? ` Se foi fácil, tente ${fk(Math.max(...kgs) + 2)} kg.` : '');
+        const lg2 = easy ? lastGym(st.name, 1) : null;
+        const sure = lg2 && lg2.log && lg2.log.length >= st.rounds && lg2.log.every(x => parseInt(x.r) >= tgt) && Math.max(...lg2.log.map(x => toNum(x.kg))) === Math.max(...kgs);
+        lastEl.textContent = `Última vez (${d}): ` + lg.log.map(x => `${x.kg ? fk(x.kg) + ' kg' : 'sem carga'} × ${x.r}`).join(', ') + '.' + (sure ? ` Você completou tudo nas 2 últimas vezes: suba para ${fk(Math.max(...kgs) + 2)} kg.` : easy ? ` Se foi fácil, tente ${fk(Math.max(...kgs) + 2)} kg.` : '');
       } else {
         const kgN = toNum(lg.kg);
         lastEl.textContent = lg.kg ? `Última vez (${d}): ${fk(lg.kg)} kg, ${lg.sets}x${lg.r}.` + (isFinite(kgN) && lg.sets >= st.rounds ? ` Se foi fácil, tente ${fk(kgN + 2)} kg.` : '') : `Última vez (${d}): sem carga anotada.`;
@@ -2492,8 +2500,8 @@
     const next = u ? u.uid : '';
     Acct.user = u ? { uid: u.uid, name: u.name || '', email: u.email || '' } : null;
     try { u ? localStorage.setItem('treino.lastUser', JSON.stringify(Acct.user)) : localStorage.removeItem('treino.lastUser'); } catch {}
-    Acct.admin = false; Acct.gym = undefined; if (!u) setBrand(null);
-    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); loadProf(); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
+    Acct.admin = false; Acct.gym = undefined; if (!u) { setBrand(null); Acct.me = Acct.rec = Acct.aval = null; if (typeof renderAvisos === 'function') renderAvisos(); }
+    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); loadProf(); checkinPendente(); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
     if (u && window.TreinoCloud && window.TreinoCloud.isAdmin) window.TreinoCloud.isAdmin().then(v => { Acct.admin = v; if ($('#acct').open) renderAcct(); });
     if (u) setTimeout(maybeIntro, 1200);
     if (next !== ns) {
@@ -2674,7 +2682,8 @@
     let L = [];
     try { L = await window.TreinoCloud.getAssessments(); } catch { box.innerHTML = '<h2>Minhas avaliações</h2><p class="hint">Não foi possível carregar agora. Verifique a internet.</p><button class="btn small secondary" data-a="close">Fechar</button>'; return; }
     const d = L.slice().reverse();
-    box.innerHTML = '<h2>Minhas avaliações</h2>' + (d.length ? d.map((a, i) => {
+    const mp = metaProgresso(Acct.me, L), metaH = mp ? `<article class="sess"><div class="sess-head"><h3>Minha meta</h3><span class="dur">${Math.round(mp.pct * 100)}%</span></div><p style="margin:6px 0">${META_NOME[mp.t][0]}: meta <b>${f1(mp.alvo)}${META_NOME[mp.t][1]}</b> · agora <b>${f1(mp.atual)}${META_NOME[mp.t][1]}</b></p><div class="kmbar"><div class="track"><div class="fill" style="width:${Math.round(mp.pct * 100)}%"></div></div></div></article>` : '';
+    box.innerHTML = '<h2>Minhas avaliações</h2>' + metaH + (d.length ? d.map((a, i) => {
       const p = d[i + 1], dl = (x, y, un) => (x != null && y != null) ? ` <span class="hint">(${x - y > 0 ? '+' : ''}${f1(x - y)} ${un})</span>` : '', m = a.medidas || {};
       return `<article class="sess"><div class="sess-head"><h3>${esc(brD(a.data))}</h3></div>
         <p style="margin:6px 0">Peso <b>${f1(nn(a.peso))} kg</b>${dl(nn(a.peso), p && nn(p.peso), 'kg')}<br>IMC <b>${f1(a.imc)}</b> ${esc(clsIMC(a.imc))}<br>Gordura <b>${f1(a.gordura)}%</b>${dl(a.gordura, p && p.gordura, '%')}<br>Massa magra <b>${f1(a.massaMagra)} kg</b> · Massa gorda <b>${f1(a.massaGorda)} kg</b></p>
@@ -2691,6 +2700,46 @@
     b.disabled = true; const out = $('#ph-' + a.id); out.innerHTML = '';
     for (const path of Object.values(a.fotos || {})) { try { const u = await window.TreinoCloud.fotoUrl(path); const im = document.createElement('img'); im.src = u; im.alt = 'Foto da avaliação'; im.style.cssText = 'width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px'; out.appendChild(im); } catch {} }
   });
+
+  /* avisos da academia (recado, reavaliação, meta) e check-in por QR Code */
+  const hojeLocal = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  const META_NOME = { gordura: ['Gordura corporal', '%'], peso: ['Peso', 'kg'], cintura: ['Cintura', 'cm'], massaMagra: ['Massa magra', 'kg'] };
+  const metaVal = (t, a) => !a ? null : t === 'gordura' ? (a.gordura == null ? null : a.gordura) : t === 'peso' ? nn(a.peso) : t === 'cintura' ? nn((a.medidas || {}).cintura) : t === 'massaMagra' ? (a.massaMagra == null ? null : a.massaMagra) : null;
+  function metaProgresso(me, L) {
+    if (!me || !me.meta || !META_NOME[me.meta.tipo] || !L || !L.length) return null;
+    const t = me.meta.tipo, alvo = nn(me.meta.alvo), atual = metaVal(t, L[L.length - 1]); let ini = nn(me.meta.inicio); if (ini == null) ini = metaVal(t, L[0]);
+    if (alvo == null || atual == null || ini == null) return null;
+    return { t, alvo, atual, pct: ini === alvo ? 1 : Math.max(0, Math.min(1, (ini - atual) / (ini - alvo))) };
+  }
+  function renderAvisos() {
+    const box = document.getElementById('avisos'); if (!box) return;
+    if (!Acct.gym || Acct.gym.role !== 'student') { box.innerHTML = ''; return; }
+    let h = '';
+    const rec = Acct.rec;
+    if (rec && rec.texto) { let vis = true; try { vis = localStorage.getItem('treino.recado.' + rec.em) !== '1'; } catch {} if (vis) h += `<article class="sess"><div class="sess-head"><h3>Recado do professor</h3></div><p style="margin:6px 0">${esc(rec.texto)}</p><button class="btn small secondary" data-av="rec">Entendi</button></article>`; }
+    const me = Acct.me;
+    if (me && me.proximaAval) {
+      const dias = Math.round((new Date(me.proximaAval + 'T00:00:00') - new Date(hojeLocal() + 'T00:00:00')) / 864e5);
+      if (dias <= 7) h += `<article class="sess"><div class="sess-head"><h3>Reavaliação física</h3></div><p style="margin:6px 0">${dias < 0 ? 'Sua reavaliação estava marcada para ' + esc(brD(me.proximaAval)) + '. Fale com seu professor para agendar.' : dias === 0 ? 'Sua reavaliação é hoje!' : 'Sua próxima avaliação física: ' + esc(brD(me.proximaAval)) + ' (em ' + dias + ' dia' + (dias > 1 ? 's' : '') + ').'}</p></article>`;
+    }
+    const mp = metaProgresso(me, Acct.aval);
+    if (mp) { const [nome, un] = META_NOME[mp.t]; h += `<article class="sess"><div class="sess-head"><h3>Minha meta</h3><span class="dur">${Math.round(mp.pct * 100)}%</span></div><p style="margin:6px 0">${nome}: meta <b>${f1(mp.alvo)}${un}</b> · agora <b>${f1(mp.atual)}${un}</b></p><div class="kmbar"><div class="track"><div class="fill" style="width:${Math.round(mp.pct * 100)}%"></div></div></div></article>`; }
+    box.innerHTML = h;
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-av="rec"]'); if (!b || !Acct.rec) return;
+    try { localStorage.setItem('treino.recado.' + Acct.rec.em, '1'); } catch {} renderAvisos();
+  });
+  const CK_KEY = 'treino.checkin';
+  try { const q = new URLSearchParams(location.search).get('checkin'); if (q) { sessionStorage.setItem(CK_KEY, q); history.replaceState(null, '', location.pathname); } } catch {}
+  const CK_ERR = { 'treino/checkin-outra': 'Este QR Code é de outra academia.', 'treino/checkin-sem-academia': 'Entre primeiro na sua academia (Conta, com o código do professor).', 'permission-denied': 'QR Code inválido ou desatualizado. Peça à recepção o QR atual.' };
+  function checkinPendente() {
+    let q = null; try { q = sessionStorage.getItem(CK_KEY); } catch {}
+    const C = window.TreinoCloud; if (!q || !C || !C.checkin || Acct.gym === undefined) return;
+    try { sessionStorage.removeItem(CK_KEY); } catch {}
+    if (!Acct.gym || Acct.gym.role !== 'student') { alert(CK_ERR['treino/checkin-sem-academia']); return; }
+    C.checkin(q).then(r => alert('Presença registrada na ' + r.academia + '. Bom treino!')).catch(er => alert(CK_ERR[er && er.code] || 'Não foi possível registrar a presença agora.'));
+  }
 
   /* janela da conta (só para quem já entrou) */
   function renderAcct() {

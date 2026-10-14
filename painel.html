@@ -59,6 +59,8 @@
   .bar { display:flex; align-items:flex-end; gap:6px; height:90px; } .bar div { flex:1; background:var(--accent); border-radius:4px 4px 0 0; min-height:2px; position:relative; } .bar span { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:.75rem; }
   svg.gr { width:100%; height:auto; } details { border-top:1px solid var(--line); padding:8px 0; } summary { cursor:pointer; font-weight:600; }
   @media print { header.top, .tabs, .noprint, #v-login, #v-setup { display:none !important; } body { background:#fff; color:#000; } .card { border:0; padding:0; } .wrap { max-width:none; } }
+  .pill.up { color:var(--danger); border-color:var(--danger); } .pill.aviso { color:#B26A00; border-color:#B26A00; } .chips { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; } .chips button { min-height:38px; padding:6px 12px; }
+  .prog { height:12px; background:var(--bg); border-radius:99px; overflow:hidden; } .prog div { height:100%; background:var(--good); }
   .hide { display:none !important; }
   .center { text-align:center; padding:48px 16px; }
 </style>
@@ -113,7 +115,8 @@
 
     <section id="p-alunos">
       <div class="row"><div class="grow"><input id="a-busca" placeholder="Buscar aluno por nome ou e-mail" type="search"></div>
-        <div><select id="a-filtro"><option value="todos">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select></div></div>
+        <div><select id="a-filtro"><option value="todos">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option><option value="sumido">Sumidos (7+ dias)</option><option value="ficha">Ficha vencida ou sem ficha</option><option value="reaval">Reavaliação próxima</option></select></div></div>
+      <div class="chips" id="a-resumo"></div>
       <div class="card" id="a-lista"><p class="muted">Carregando alunos…</p></div>
     </section>
 
@@ -128,6 +131,9 @@
           <div class="grow"><select id="f-modelo"><option value="">Usar um modelo…</option></select></div><button class="sec" id="f-modelo-ok">Usar</button>
         </div>
       </div>
+      <div class="card"><h2>Recado para o aluno</h2><p class="muted">Aparece no topo do app do aluno até ele tocar em "Entendi".</p>
+        <textarea id="f-recado" rows="2" maxlength="300" placeholder="Ex.: Troque a carga do supino esta semana." style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)"></textarea>
+        <div class="row" style="margin-top:8px"><button class="sec" id="f-recado-ok">Enviar recado</button><button class="sec" id="f-recado-rm">Apagar recado</button><span id="f-recado-msg" class="ok"></span></div></div>
       <div id="f-dias"></div>
       <button class="sec" id="f-add-dia">+ Adicionar dia de treino</button>
       <datalist id="f-lib"></datalist>
@@ -145,6 +151,8 @@
         <label for="k-logo">Logo (PNG ou JPG)</label>
         <input type="file" id="k-logo" accept="image/png,image/jpeg,image/webp">
         <div class="row" style="margin-top:6px"><button class="sec" id="k-logo-rm">Remover logo</button></div>
+        <label for="k-sem">Avisar para renovar a ficha a cada</label>
+        <select id="k-sem"><option value="4">4 semanas</option><option value="6">6 semanas</option><option value="8">8 semanas</option><option value="12">12 semanas</option></select>
         <label>Prévia no app do aluno</label>
         <div class="prev" id="k-prev"><img id="k-prev-img" class="hide" alt=""><b id="k-prev-nome"></b></div>
         <div class="row"><button id="k-salvar">Salvar marca</button><span id="k-msg" class="ok"></span></div>
@@ -178,7 +186,15 @@
     </section>
 
     <section id="p-convite" class="hide">
-      <div class="card">
+      <div class="card" id="qr-card">
+        <h2>QR Code de presença</h2>
+        <p class="muted noprint">Imprima e cole na recepção. O aluno aponta a câmera do celular e a presença do dia é registrada.</p>
+        <div id="qr-img" style="max-width:280px;margin:8px auto"></div>
+        <p id="qr-leg" class="muted" style="text-align:center"></p>
+        <div class="row noprint"><button id="qr-gerar">Gerar QR</button><button class="sec" id="qr-print">Imprimir cartaz</button></div>
+        <p class="muted noprint">Se alguém copiar o QR fora da academia, gere um novo: o antigo deixa de valer.</p><div class="err noprint" id="qr-err"></div>
+      </div>
+      <div class="card noprint">
         <h2>Código de convite</h2>
         <p class="muted">Passe este código ao aluno. Ele cria a conta no app, digita o código e fica ligado à sua academia.</p>
         <div class="code" id="c-code">—</div>
@@ -289,24 +305,54 @@ async function carregarAlunos() {
     desenharAlunos();
   } catch (e) { $('a-lista').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
 }
+const diasDesde = iso => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : null;
+const ultAtiv = a => [a.ultimoTreino, a.ultimoCheckin].filter(Boolean).sort().pop() || null;
+function alertas(a) {
+  const r = []; if ((a.status || 'ativo') !== 'ativo') return r;
+  const d = diasDesde(ultAtiv(a)), desde = diasDesde(a.criadoEm);
+  if (d != null ? d >= 7 : (desde != null && desde >= 7)) r.push({ k: 'sumido', t: d != null ? `Sem treinar há ${d} dias` : 'Ainda não treinou', cl: d == null || d >= 14 ? 'up' : 'aviso' });
+  const sem = (gym && gym.fichaSemanas) || 8;
+  if (!a.fichaEm) r.push({ k: 'ficha', t: 'Sem ficha', cl: 'aviso' }); else { const w = Math.floor(diasDesde(a.fichaEm) / 7); if (w >= sem) r.push({ k: 'ficha', t: `Ficha com ${w} semanas: renovar`, cl: 'aviso' }); }
+  if (a.proximaAval) { const dd = Math.round((new Date(a.proximaAval + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5); if (dd <= 7) r.push({ k: 'reaval', t: dd < 0 ? `Reavaliação atrasada (${brData(a.proximaAval)})` : `Reavaliar em ${brData(a.proximaAval)}`, cl: dd < 0 ? 'up' : 'aviso' }); }
+  return r;
+}
 function desenharAlunos() {
   const q = $('a-busca').value.trim().toLowerCase(), f = $('a-filtro').value;
-  const lista = alunos.filter(a => (f === 'todos' || (a.status || 'ativo') === f) && (!q || (String(a.nome || '') + ' ' + String(a.email || '')).toLowerCase().includes(q)));
+  const cont = { sumido: 0, ficha: 0, reaval: 0 }; alunos.forEach(a => alertas(a).forEach(x => { cont[x.k]++; }));
+  $('a-resumo').innerHTML = [['sumido', 'Sumidos'], ['ficha', 'Fichas a renovar'], ['reaval', 'Reavaliações']].filter(([k]) => cont[k]).map(([k, n]) => `<button class="sec" data-chip="${k}">${n}: ${cont[k]}</button>`).join('');
+  const lista = alunos.filter(a => (f === 'todos' || (['ativo', 'inativo'].includes(f) ? (a.status || 'ativo') === f : alertas(a).some(x => x.k === f))) && (!q || (String(a.nome || '') + ' ' + String(a.email || '')).toLowerCase().includes(q)));
   if (!alunos.length) { $('a-lista').innerHTML = '<p class="muted">Nenhum aluno ainda. Vá na aba <b>Convite</b>, copie o código e passe para o primeiro aluno.</p>'; return; }
   if (!lista.length) { $('a-lista').innerHTML = '<p class="muted">Nenhum aluno encontrado.</p>'; return; }
   $('a-lista').innerHTML = lista.map(a => {
-    const st = a.status || 'ativo';
-    return `<div class="aluno"><div class="grow" style="flex:1 1 160px"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div></div>
+    const st = a.status || 'ativo', al = alertas(a);
+    return `<div class="aluno"><div class="grow" style="flex:1 1 160px"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div>
+      ${al.length ? '<div style="margin-top:4px">' + al.map(x => `<span class="pill ${x.cl}">${esc(x.t)}</span>`).join(' ') + '</div>' : ''}</div>
       <span class="pill ${st === 'ativo' ? 'on' : ''}">${st === 'ativo' ? 'Ativo' : 'Inativo'}</span>
       <div class="btns"><button data-act="ficha" data-uid="${esc(a.uid)}">Ficha</button><button data-act="aval" data-uid="${esc(a.uid)}">Avaliações</button><button data-act="evo" data-uid="${esc(a.uid)}">Evolução</button>
+      <button class="sec" data-act="zap" data-uid="${esc(a.uid)}">WhatsApp</button><button class="sec" data-act="tel" data-uid="${esc(a.uid)}" aria-label="Editar telefone">☎</button>
       <button class="sec" data-act="status" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div></div>`;
   }).join('');
+}
+$('a-resumo').onclick = ev => { const b = ev.target.closest('[data-chip]'); if (b) { $('a-filtro').value = b.dataset.chip; desenharAlunos(); } };
+async function pedirTelefone(uid) {
+  const a = alunoDe(uid); const t = prompt('Telefone do aluno com DDD (só números):', a.telefone || ''); if (t == null) return null;
+  const tel = t.replace(/\D/g, ''); if (tel && tel.length < 10) { alert('Telefone inválido.'); return null; }
+  try { await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', uid), { telefone: tel }); a.telefone = tel; return tel; } catch (e) { alert(erro(e)); return null; }
+}
+async function zap(uid) {
+  const a = alunoDe(uid); let tel = String(a.telefone || '').replace(/\D/g, ''); if (!tel) { tel = await pedirTelefone(uid); if (!tel) return; }
+  if (!tel.startsWith('55')) tel = '55' + tel;
+  const nome = String(a.nome || '').split(' ')[0], d = diasDesde(ultAtiv(a));
+  const msg = `Oi${nome ? ' ' + nome : ''}! Aqui é da ${gym.nome}. ${d != null && d >= 7 ? 'Sentimos sua falta nos treinos. ' : ''}Bora treinar essa semana?`;
+  window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
 }
 $('a-lista').onclick = async ev => {
   const b = ev.target.closest('button[data-uid]'); if (!b) return;
   if (b.dataset.act === 'ficha') return abrirFicha(b.dataset.uid);
   if (b.dataset.act === 'aval') return abrirAval(b.dataset.uid);
   if (b.dataset.act === 'evo') return abrirEvo(b.dataset.uid);
+  if (b.dataset.act === 'zap') return zap(b.dataset.uid);
+  if (b.dataset.act === 'tel') { await pedirTelefone(b.dataset.uid); return; }
   const novo = b.dataset.st === 'ativo' ? 'inativo' : 'ativo';
   b.disabled = true;
   try { await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', b.dataset.uid), { status: novo });
@@ -316,6 +362,26 @@ $('a-lista').onclick = async ev => {
 $('a-busca').oninput = desenharAlunos; $('a-filtro').onchange = desenharAlunos;
 
 /* ---------- convite ---------- */
+let qrLib = null;
+async function carregaQR() {
+  if (window.qrcode) return window.qrcode;
+  await new Promise(res => { const sc = document.createElement('script'); sc.src = 'qrcode.js'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); });
+  return window.qrcode;
+}
+async function desenharQR() {
+  $('qr-err').textContent = ''; $('qr-img').innerHTML = ''; $('qr-leg').textContent = ''; $('qr-print').disabled = !gym.checkinToken;
+  if (!gym.checkinToken) { $('qr-leg').textContent = gym.role === 'owner' ? 'Ainda não há QR. Toque em Gerar QR.' : 'O dono da academia ainda não gerou o QR.'; return; }
+  const Q = await carregaQR(); if (!Q) { $('qr-err').textContent = 'Não consegui carregar o gerador de QR Code.'; return; }
+  const url = new URL('index.html', location.href).href + '?checkin=' + gymId + '.' + gym.checkinToken, q = Q(0, 'M'); q.addData(url); q.make();
+  $('qr-img').innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); $('qr-leg').textContent = gym.nome + ' · aponte a câmera do celular para registrar sua presença';
+}
+$('qr-gerar').onclick = async () => {
+  if (gym.role !== 'owner') { $('qr-err').textContent = 'Só o dono da academia pode gerar o QR.'; return; }
+  if (gym.checkinToken && !confirm('Gerar um novo QR? O QR impresso atual deixa de funcionar.')) return;
+  try { const a = new Uint32Array(4); crypto.getRandomValues(a); const t = Array.from(a, n => n.toString(36)).join('').slice(0, 20);
+    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { checkinToken: t }); gym.checkinToken = t; desenharQR(); } catch (e) { $('qr-err').textContent = erro(e); }
+};
+$('qr-print').onclick = () => window.print();
 function mostrarCodigo() { $('c-code').textContent = fmt(gym.inviteCode); }
 $('c-copiar').onclick = async () => { try { await navigator.clipboard.writeText(gym.inviteCode); $('c-msg').textContent = 'Código copiado.'; } catch { $('c-msg').textContent = 'Copie manualmente: ' + gym.inviteCode; } };
 $('c-novo').onclick = async () => {
@@ -333,7 +399,7 @@ $('c-novo').onclick = async () => {
 /* ---------- abas ---------- */
 const SECS = ['alunos', 'convite', 'marca', 'equipe', 'ficha', 'aval', 'evo', 'rel'];
 function aba(n) { SECS.forEach(x => $('p-' + x).classList.toggle('hide', x !== n)); ['alunos', 'convite', 'marca', 'equipe'].forEach(x => $('t-' + x).classList.toggle('on', x === n)); }
-$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-equipe').onclick = () => { abrirEquipe(); aba('equipe'); }; $('t-convite').onclick = () => aba('convite');
+$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-equipe').onclick = () => { abrirEquipe(); aba('equipe'); }; $('t-convite').onclick = () => { aba('convite'); desenharQR(); };
 
 
 /* ---------- marca da academia (nome, logo, cor) ---------- */
@@ -358,7 +424,7 @@ function previaMarca() {
 }
 function abrirMarca() {
   K = { nome: gym.nome || '', cor: okHex(gym.corDestaque) ? gym.corDestaque : '#6A3DF0', logoUrl: gym.logoUrl || '', logoBlob: null };
-  $('k-nome').value = K.nome; $('k-msg').textContent = ''; $('k-logo').value = '';
+  $('k-sem').value = String(gym.fichaSemanas || 8); $('k-nome').value = K.nome; $('k-msg').textContent = ''; $('k-logo').value = '';
   $('k-aviso').textContent = gym.role === 'owner' ? '' : 'Só o dono da academia pode alterar a marca.'; $('k-salvar').disabled = gym.role !== 'owner';
   previaMarca();
 }
@@ -384,8 +450,9 @@ $('k-salvar').onclick = async () => {
   try {
     let logoUrl = K.logoUrl;
     if (K.logoBlob) { const r = SS.ref(storage, `gyms/${gymId}/logo/logo.png`); await SS.uploadBytes(r, K.logoBlob, { contentType: 'image/png' }); logoUrl = await SS.getDownloadURL(r); }
-    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { nome, corDestaque: K.cor, logoUrl: logoUrl || '' });
-    Object.assign(gym, { nome, corDestaque: K.cor, logoUrl: logoUrl || '' }); K.logoUrl = logoUrl || ''; K.logoBlob = null; aplicarMarca(); km('Marca salva. Os alunos veem na próxima vez que abrirem o app.', true);
+    const fichaSemanas = parseInt($('k-sem').value, 10) || 8;
+    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { nome, corDestaque: K.cor, logoUrl: logoUrl || '', fichaSemanas });
+    Object.assign(gym, { nome, corDestaque: K.cor, logoUrl: logoUrl || '', fichaSemanas }); K.logoUrl = logoUrl || ''; K.logoBlob = null; aplicarMarca(); km('Marca salva. Os alunos veem na próxima vez que abrirem o app.', true);
   } catch (e) { km(erro(e)); }
   $('k-salvar').disabled = false;
 };
@@ -407,7 +474,9 @@ async function abrirFicha(uid) {
   $('f-titulo').textContent = 'Ficha de ' + F.nome; $('f-msg').textContent = '';
   $('f-copiar').innerHTML = '<option value="">Copiar ficha de outro aluno…</option>' + alunos.filter(x => x.uid !== uid).map(x => `<option value="${esc(x.uid)}">${esc(x.nome || x.email)}</option>`).join('');
   $('f-modelo').innerHTML = '<option value="">Usar um modelo…</option>';
+  $('f-recado').value = ''; $('f-recado-msg').textContent = '';
   document.querySelector('.tabs').classList.add('hide'); aba('ficha'); desenharFicha();
+  FS.getDoc(FS.doc(db, 'gyms', gymId, 'students', uid, 'plans', 'recado')).then(d => { if (d.exists() && F && F.uid === uid) $('f-recado').value = d.data().texto || ''; }).catch(() => {});
   try {
     const d = await FS.getDoc(FS.doc(db, 'gyms', gymId, 'students', uid, 'plans', 'atual'));
     if (d.exists() && F && F.uid === uid) { const p = d.data(); F.plano = { nome: p.nome || '', dias: (p.dias && p.dias.length ? p.dias : [novoDia(0)]).map(x => ({ ...x, ex: (x.ex || []).map(e => ({ ...e })) })) }; desenharFicha(); }
@@ -435,6 +504,11 @@ function desenharFicha() {
     <div class="row" style="margin-top:10px"><button class="sec" data-a="add-ex">+ Exercício</button><button class="sec" data-a="dup-dia">Duplicar dia</button><button class="danger" data-a="rm-dia">Remover dia</button></div>
   </div>`).join('');
 }
+$('f-recado-ok').onclick = async () => {
+  const t = $('f-recado').value.trim().slice(0, 300), m = $('f-recado-msg'); m.className = 'ok'; if (!t) { m.className = 'err'; m.textContent = 'Escreva o recado.'; return; }
+  try { await FS.setDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid, 'plans', 'recado'), { texto: t, em: new Date().toISOString(), por: me.uid }); m.textContent = 'Recado enviado.'; } catch (e) { m.className = 'err'; m.textContent = erro(e); }
+};
+$('f-recado-rm').onclick = async () => { const m = $('f-recado-msg'); try { await FS.deleteDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid, 'plans', 'recado')); $('f-recado').value = ''; m.className = 'ok'; m.textContent = 'Recado apagado.'; } catch (e) { m.className = 'err'; m.textContent = erro(e); } };
 $('f-nome').oninput = () => { if (F) F.plano.nome = $('f-nome').value; };
 $('f-dias').oninput = ev => {
   const i = ev.target.dataset.f; if (!i || !F) return;
@@ -462,6 +536,7 @@ $('f-salvar').onclick = async () => {
   try {
     await FS.setDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid, 'plans', 'atual'), { nome: String(F.plano.nome || '').slice(0, 80), dias, atualizadoEm: new Date().toISOString(), atualizadoPor: me.uid });
     F.plano.dias = dias; desenharFicha(); fmsg('Ficha salva. O aluno já vê no app.');
+    try { const agora = new Date().toISOString(); await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid), { fichaEm: agora }); alunoDe(F.uid).fichaEm = agora; } catch {}
   } catch (e) { fmsg(erro(e), false); }
   $('f-salvar').disabled = false;
 };
@@ -559,6 +634,7 @@ const alunoDe = uid => alunos.find(x => x.uid === uid) || {};
 const apath = (uid, ...r) => ['gyms', gymId, 'students', uid, ...r];
 
 /* ---------- avaliação física ---------- */
+let EV = null;
 let AV = null;                     // { uid, nome, lista, edit, novas: {frente: Blob...} }
 async function abrirAval(uid) {
   const a = alunoDe(uid); AV = { uid, nome: a.nome || 'Aluno', lista: [], edit: null, novas: {}, rem: {} };
@@ -572,19 +648,27 @@ async function abrirAval(uid) {
 function listaAval() {
   const L = AV.lista, desc = L.slice().reverse();
   const opt = L.map(a => `<option value="${esc(a.id)}">${brData(a.data)}</option>`).join('');
+  const st = alunoDe(AV.uid), mt = st.meta || {}, mp = progMeta(st, L);
   $('av-lista').innerHTML = `<div class="row"><button id="av-nova">+ Nova avaliação</button></div>
+    <div class="card"><h2>Meta do aluno</h2>
+      <div class="row"><div class="grow"><select id="mt-tipo"><option value="">Sem meta</option><option value="gordura">% de gordura</option><option value="peso">Peso (kg)</option><option value="cintura">Cintura (cm)</option><option value="massaMagra">Massa magra (kg)</option></select></div>
+        <div style="width:110px"><input id="mt-alvo" inputmode="decimal" placeholder="Alvo" value="${esc(mt.alvo == null ? '' : mt.alvo)}"></div><button class="sec" id="mt-ok">Salvar meta</button></div>
+      ${mp ? `<p style="margin:10px 0 4px">${esc(META[mp.t][0])}: de <b>${f1(mp.ini)}</b> para <b>${f1(mp.alvo)}${META[mp.t][1]}</b> · agora <b>${f1(mp.atual)}${META[mp.t][1]}</b> (${Math.round(mp.pct * 100)}%)</p><div class="prog"><div style="width:${Math.round(mp.pct * 100)}%"></div></div>` : '<p class="muted" style="margin:8px 0 0">Defina uma meta para o aluno acompanhar no app.</p>'}
+      <span id="mt-msg" class="ok"></span></div>
     ${L.length >= 2 ? `<div class="card"><h2>Comparar</h2><div class="row"><div class="grow"><select id="cp-a">${opt}</select></div><div class="grow"><select id="cp-b">${opt}</select></div><button class="sec" id="cp-ok">Comparar</button></div><div id="cp-out"></div></div>` : ''}
     <div class="card"><h2>Evolução</h2><h3>Peso (kg)</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: num(a.peso) })), 'kg')}
       <h3>% de gordura</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: calcular(a).gordura })), '%')}
       <h3>Cintura (cm)</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: num((a.medidas || {}).cintura) })), 'cm')}</div>
     <div class="card"><h2>Histórico</h2>${desc.length ? desc.map(a => { const c = calcular(a); return `<div class="aluno"><div style="flex:1 1 160px"><div class="nome">${brData(a.data)}</div><div class="muted">${f1(num(a.peso))} kg · IMC ${f1(c.imc)} · gordura ${f1(c.gordura)}%</div></div>
       <div class="btns"><button data-av="rel" data-id="${esc(a.id)}">Relatório</button><button class="sec" data-av="ed" data-id="${esc(a.id)}">Editar</button><button class="danger" data-av="rm" data-id="${esc(a.id)}">Excluir</button></div></div>`; }).join('') : '<p class="muted">Nenhuma avaliação ainda.</p>'}</div>`;
+  $('mt-tipo').value = mt.tipo || '';
   if (L.length >= 2) { $('cp-a').value = L[L.length - 2].id; $('cp-b').value = L[L.length - 1].id; }
 }
 $('av-voltar').onclick = () => { AV = null; document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); };
 $('av-lista').onclick = async ev => {
   if (ev.target.id === 'av-nova') return formAval(null);
   if (ev.target.id === 'cp-ok') return comparar($('cp-a').value, $('cp-b').value);
+  if (ev.target.id === 'mt-ok') return salvarMeta();
   const b = ev.target.closest('[data-av]'); if (!b) return; const a = AV.lista.find(x => x.id === b.dataset.id); if (!a) return;
   if (b.dataset.av === 'ed') formAval(a); else if (b.dataset.av === 'rel') relatorio(a);
   else if (b.dataset.av === 'rm') {
@@ -611,6 +695,22 @@ async function comparar(ia, ib) {
   $('cp-out').innerHTML = h + (fs.length ? '<h3>Fotos (antes e depois)</h3>' + fs.join('') : '');
 }
 
+const META = { gordura: ['% de gordura', '%'], peso: ['Peso', ' kg'], cintura: ['Cintura', ' cm'], massaMagra: ['Massa magra', ' kg'] };
+const valMeta = (t, a) => !a ? null : t === 'gordura' ? calcular(a).gordura : t === 'peso' ? num(a.peso) : t === 'cintura' ? num((a.medidas || {}).cintura) : t === 'massaMagra' ? calcular(a).massaMagra : null;
+function progMeta(st, L) {
+  const m = st.meta; if (!m || !META[m.tipo] || !L.length) return null; const alvo = num(m.alvo), atual = valMeta(m.tipo, L[L.length - 1]); let ini = num(m.inicio); if (ini == null) ini = valMeta(m.tipo, L[0]);
+  if (alvo == null || atual == null || ini == null) return null; return { t: m.tipo, alvo, atual, ini, pct: ini === alvo ? 1 : Math.max(0, Math.min(1, (ini - atual) / (ini - alvo))) };
+}
+async function salvarMeta() {
+  const tipo = $('mt-tipo').value, alvo = num($('mt-alvo').value), msg = $('mt-msg'); msg.className = 'ok';
+  try {
+    let meta = null;
+    if (tipo) { if (alvo == null) { msg.className = 'err'; msg.textContent = 'Informe o valor alvo.'; return; }
+      const ini = valMeta(tipo, AV.lista[AV.lista.length - 1]); meta = { tipo, alvo, inicio: ini == null ? null : +ini.toFixed(2), dataInicio: hojeISO() }; }
+    await FS.updateDoc(FS.doc(db, ...apath(AV.uid)), { meta }); alunoDe(AV.uid).meta = meta; listaAval(); $('mt-msg').textContent = meta ? 'Meta salva. O aluno vê no app.' : 'Meta removida.';
+  } catch (e) { msg.className = 'err'; msg.textContent = erro(e); }
+}
+
 /* formulário */
 function reduzir(file, max, q) {
   return createImageBitmap(file).then(bmp => { const r = Math.min(1, max / Math.max(bmp.width, bmp.height)); const c = document.createElement('canvas'); c.width = Math.round(bmp.width * r); c.height = Math.round(bmp.height * r);
@@ -632,6 +732,7 @@ function formAval(a) {
     <h3>Gordura corporal</h3><label>Protocolo</label><select id="f-prot"><option value="p3">Pollock 3 dobras</option><option value="p7">Pollock 7 dobras</option><option value="manual">Informar o % manualmente</option></select>
     <div class="g2" id="f-dobras">${camposDobras(prot, sexo)}</div><div id="f-manual" class="hide"><label>% de gordura</label><input id="f-gman" inputmode="decimal" value="${esc(x.gorduraManual || '')}"></div>
     <div class="kpi" style="margin-top:12px" id="f-calc"></div>
+    <label>Reavaliar em</label><select id="f-prox">${a ? '<option value="keep">Manter o agendamento atual</option>' : ''}<option value="30">30 dias</option><option value="60"${a ? '' : ' selected'}>60 dias</option><option value="90">90 dias</option><option value="">Não agendar</option></select>
     <h3>Fotos</h3><div class="g3">${FOTOS.map(([k, n]) => `<div><label>${n}</label><input type="file" accept="image/*" data-foto="${k}"><img class="hide" id="pv-${k}" alt="" style="width:100%;border-radius:8px;margin-top:6px"></div>`).join('')}</div>
     <p class="muted">As fotos são dados sensíveis: só você, a equipe da academia e o próprio aluno conseguem ver.</p>
     <label>Observações</label><textarea id="f-obs" rows="3" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)">${esc(x.obs || '')}</textarea>
@@ -672,7 +773,11 @@ $('av-form').onclick = async ev => {
     const doc = { ...o, fotos, imc: c.imc == null ? null : +c.imc.toFixed(2), gordura: c.gordura == null ? null : +c.gordura.toFixed(2), massaMagra: c.massaMagra == null ? null : +c.massaMagra.toFixed(2), massaGorda: c.massaGorda == null ? null : +c.massaGorda.toFixed(2),
       criadoEm: (AV.edit && AV.edit.criadoEm) || new Date().toISOString(), criadoPor: (AV.edit && AV.edit.criadoPor) || me.uid, atualizadoEm: new Date().toISOString() };
     await FS.setDoc(ref, doc);
-    try { await FS.updateDoc(FS.doc(db, ...apath(AV.uid)), { sexo: o.sexo, nascimento: o.nascimento }); const st = alunoDe(AV.uid); st.sexo = o.sexo; st.nascimento = o.nascimento; } catch {}
+    try {
+      const up = { sexo: o.sexo, nascimento: o.nascimento }, pr = $('f-prox').value;
+      if (pr !== 'keep') { if (pr) { const d = new Date(o.data + 'T00:00:00'); d.setDate(d.getDate() + parseInt(pr, 10)); up.proximaAval = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); } else up.proximaAval = null; }
+      await FS.updateDoc(FS.doc(db, ...apath(AV.uid)), up); Object.assign(alunoDe(AV.uid), up);
+    } catch {}
     const nova = { id: ref.id, ...doc }; AV.lista = AV.lista.filter(x => x.id !== ref.id).concat([nova]).sort((x, y) => String(x.data).localeCompare(String(y.data)));
     $('av-form').classList.add('hide'); $('av-lista').classList.remove('hide'); listaAval();
   } catch (e) { msg.className = 'err'; msg.textContent = erro(e); $('f-ok').disabled = false; }
@@ -700,19 +805,30 @@ $('rl-voltar').onclick = () => aba('aval'); $('rl-imprimir').onclick = () => win
 async function abrirEvo(uid) {
   const a = alunoDe(uid); $('ev-titulo').textContent = 'Evolução de ' + (a.nome || 'aluno'); document.querySelector('.tabs').classList.add('hide'); aba('evo'); $('ev-corpo').innerHTML = '<p class="muted">Carregando…</p>';
   try {
-    const sn = await FS.getDocs(FS.collection(db, ...apath(uid, 'workouts')));
+    const [sn, ck, pl] = await Promise.all([FS.getDocs(FS.collection(db, ...apath(uid, 'workouts'))), FS.getDocs(FS.collection(db, ...apath(uid, 'checkins'))), FS.getDoc(FS.doc(db, ...apath(uid, 'plans', 'atual')))]);
     const W = sn.docs.map(d => d.data()).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+    const presencas = ck.docs.map(d => d.id).filter(d => Date.now() - new Date(d + 'T12:00:00').getTime() < 30 * 864e5).length;
+    EV = { uid, plano: pl.exists() ? pl.data() : null, sug: [] };
+    if (EV.plano) EV.plano.dias.forEach((d, di) => d.ex.forEach((e, ei) => {              // sugestão: 2 últimos treinos com todas as séries na mesma carga
+      const kgs = W.map(w => (w.gym || []).find(x => x.n === e.n)).filter(Boolean).slice(0, 2);
+      if (kgs.length === 2 && kgs.every(x => x.sets >= (e.s || 1) && num(x.kg) > 0) && num(kgs[0].kg) === num(kgs[1].kg)) EV.sug.push({ di, ei, n: e.n, de: num(kgs[0].kg), para: num(kgs[0].kg) + 2 });
+    }));
     const seg = d => { const t = new Date(d); t.setHours(0, 0, 0, 0); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.getTime(); };
     const semanas = []; const s0 = seg(Date.now()); for (let i = 7; i >= 0; i--) semanas.push(s0 - i * 7 * 864e5);
     const cont = semanas.map(t => W.filter(w => seg(w.date) === t).length), mx = Math.max(1, ...cont);
     const ult30 = W.filter(w => Date.now() - new Date(w.date).getTime() < 30 * 864e5).length;
     const ex = {}; W.slice().reverse().forEach(w => (w.gym || []).forEach(e => { const kg = num(e.kg); if (kg != null) (ex[e.n] = ex[e.n] || []).push({ l: brData(w.date.slice(0, 10)).slice(0, 5), v: kg }); }));
     const nomes = Object.keys(ex).sort();
-    $('ev-corpo').innerHTML = `<div class="card"><div class="kpi"><div>Treinos (30 dias)<b>${ult30}</b></div><div>Treinos no total<b>${W.length}</b></div><div>Último treino<b style="font-size:1.1rem">${W[0] ? brData(W[0].date.slice(0, 10)) : '—'}</b></div></div>
+    $('ev-corpo').innerHTML = `<div class="card"><div class="kpi"><div>Treinos (30 dias)<b>${ult30}</b></div><div>Treinos no total<b>${W.length}</b></div><div>Presenças pelo QR (30 dias)<b>${presencas}</b></div><div>Último treino<b style="font-size:1.1rem">${W[0] ? brData(W[0].date.slice(0, 10)) : '—'}</b></div></div>
       <h3>Treinos por semana (8 semanas)</h3><div class="bar">${cont.map((n, i) => `<div style="height:${Math.max(3, n / mx * 100)}%" title="${new Date(semanas[i]).toLocaleDateString('pt-BR')}"><span>${n}</span></div>`).join('')}</div></div>
+      ${EV.sug.length ? `<div class="card"><h2>Hora de subir a carga</h2><p class="muted">O aluno fez todas as séries com a mesma carga nos 2 últimos treinos.</p>${EV.sug.map((x, i) => `<div class="aluno"><div style="flex:1 1 160px"><div class="nome">${esc(x.n)}</div><div class="muted">${f1(x.de)} kg → ${f1(x.para)} kg</div></div><button data-ap="${i}">Aplicar na ficha</button></div>`).join('')}<div class="ok" id="ev-ap-msg"></div></div>` : ''}
       <div class="card"><h2>Carga por exercício</h2>${nomes.length ? `<select id="ev-ex">${nomes.map(n => `<option>${esc(n)}</option>`).join('')}</select><div id="ev-gr">${grafico(ex[nomes[0]], 'kg')}</div>` : '<p class="muted">Ainda não há cargas registradas.</p>'}</div>
       <div class="card"><h2>Últimos treinos</h2>${W.slice(0, 20).map(w => `<details><summary>${brData(w.date.slice(0, 10))} · ${esc(w.plan || w.act)} · ${Math.round((w.ms || 0) / 60000)} min</summary>${(w.gym || []).map(e => `<div>${esc(e.n)}: ${esc(e.sets)}x${esc(e.r)}${e.kg ? ' · ' + esc(e.kg) + ' kg' : ''}</div>`).join('') || '<div class="muted">Sem detalhes.</div>'}</details>`).join('') || '<p class="muted">Nenhum treino registrado ainda. Os treinos aparecem aqui depois que o aluno entrar na academia e sincronizar o app.</p>'}</div>
       ${gym.role === 'owner' ? `<div class="card"><h2>Dados do aluno (LGPD)</h2><p class="muted">Apaga ficha, avaliações, fotos, treinos e o vínculo deste aluno com a academia. Não dá para desfazer.</p><button class="danger" id="ev-apagar">Apagar dados do aluno</button><div class="err" id="ev-err"></div></div>` : ''}`;
+    document.querySelectorAll('[data-ap]').forEach(b => { b.onclick = async () => {
+      const x = EV.sug[+b.dataset.ap]; b.disabled = true;
+      try { EV.plano.dias[x.di].ex[x.ei].kg = String(x.para); await FS.setDoc(FS.doc(db, ...apath(uid, 'plans', 'atual')), { ...EV.plano, atualizadoEm: new Date().toISOString(), atualizadoPor: me.uid }); b.textContent = 'Aplicado'; $('ev-ap-msg').textContent = 'Carga atualizada na ficha.'; }
+      catch (e) { b.disabled = false; alert(erro(e)); } }; });
     if (nomes.length) $('ev-ex').onchange = () => { $('ev-gr').innerHTML = grafico(ex[$('ev-ex').value], 'kg'); };
     if ($('ev-apagar')) $('ev-apagar').onclick = () => apagarAluno(uid);
   } catch (e) { $('ev-corpo').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
@@ -723,7 +839,7 @@ async function apagarAluno(uid) {
   try {
     const av = await FS.getDocs(FS.collection(db, ...apath(uid, 'assessments')));
     for (const d of av.docs) { for (const k of Object.values(d.data().fotos || {})) { try { await SS.deleteObject(SS.ref(storage, k)); } catch {} } await FS.deleteDoc(d.ref); }
-    for (const sub of ['plans', 'workouts']) { const sn = await FS.getDocs(FS.collection(db, ...apath(uid, sub))); for (const d of sn.docs) await FS.deleteDoc(d.ref); }
+    for (const sub of ['plans', 'workouts', 'checkins']) { const sn = await FS.getDocs(FS.collection(db, ...apath(uid, sub))); for (const d of sn.docs) await FS.deleteDoc(d.ref); }
     await FS.deleteDoc(FS.doc(db, ...apath(uid))); await FS.deleteDoc(FS.doc(db, 'gyms', gymId, 'members', uid));
     alunos = alunos.filter(x => x.uid !== uid); document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); desenharAlunos();
   } catch (e) { $('ev-err').textContent = erro(e); }
