@@ -33,7 +33,7 @@ service cloud.firestore {
         allow delete: if ehEquipe(gymId) || ehProprio(uid);
         match /plans/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
         match /assessments/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
-        match /workouts/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehProprio(uid) && membro(gymId); }
+        match /workouts/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid) && membro(gymId); allow delete: if (ehProprio(uid) && membro(gymId)) || ehEquipe(gymId); }
         match /consent/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid); }
       }
       match /templates/{id} { allow read, write: if ehEquipe(gymId); }
