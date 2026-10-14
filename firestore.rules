@@ -29,7 +29,7 @@ service cloud.firestore {
       match /students/{uid} {
         allow read: if ehProprio(uid) || ehEquipe(gymId);
         allow create: if (ehProprio(uid) && membro(gymId)) || ehEquipe(gymId);
-        allow update: if ehEquipe(gymId) || (ehProprio(uid) && membro(gymId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'coachUid']));
+        allow update: if ehEquipe(gymId) || (ehProprio(uid) && membro(gymId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'coachUid', 'meta', 'proximaAval', 'fichaEm']));
         allow delete: if ehEquipe(gymId) || ehProprio(uid);
         match /plans/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
         match /assessments/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
