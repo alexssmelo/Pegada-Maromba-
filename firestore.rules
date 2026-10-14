@@ -1,90 +1,42 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ---------- funções de apoio ----------
     function logado() { return request.auth != null; }
     function membro(g) { return exists(/databases/$(database)/documents/gyms/$(g)/members/$(request.auth.uid)); }
     function papel(g) { return get(/databases/$(database)/documents/gyms/$(g)/members/$(request.auth.uid)).data.role; }
     function ehEquipe(g) { return logado() && membro(g) && papel(g) in ['owner', 'coach']; }
     function ehDono(g) { return logado() && membro(g) && papel(g) == 'owner'; }
     function ehProprio(uid) { return logado() && request.auth.uid == uid; }
-
-    // ---------- dados pessoais do usuário (app do aluno, modo "solo") ----------
-    match /users/{uid} {
-      allow read, write: if ehProprio(uid);
-      match /{document=**} { allow read, write: if ehProprio(uid); }
-    }
-
-    // ---------- convites ----------
-    // O código do convite é o nome do documento (aleatório, difícil de adivinhar).
-    // Só dá para ler um convite sabendo o código ("get"); listar todos é proibido.
+    function conviteOk(g, c) { return get(/databases/$(database)/documents/invites/$(c)).data.gymId == g && get(/databases/$(database)/documents/invites/$(c)).data.ativo == true; }
+    match /users/{uid}/{document=**} { allow read, write: if ehProprio(uid); }
     match /invites/{code} {
       allow get: if logado();
-      allow list: if false;
       allow create: if logado() && ehEquipe(request.resource.data.gymId);
       allow update, delete: if logado() && ehEquipe(resource.data.gymId);
     }
-
-    // ---------- academias ----------
     match /gyms/{gymId} {
       allow read: if logado() && membro(gymId);
-      // qualquer pessoa logada pode criar a sua academia, desde que seja o dono
       allow create: if logado() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if ehDono(gymId);
-      allow delete: if false;   // exclusão de academia: só pelo console (decisão consciente)
-
-      // membros (dono, professores, alunos)
       match /members/{uid} {
         allow read: if ehProprio(uid) || ehEquipe(gymId);
-        // 1) o dono cria a si mesmo ao abrir a academia
-        allow create: if ehProprio(uid) && request.resource.data.role == 'owner'
-                      && get(/databases/$(database)/documents/gyms/$(gymId)).data.ownerUid == request.auth.uid;
-        // 2) o aluno entra com um convite válido dessa academia
-        allow create: if ehProprio(uid) && request.resource.data.role == 'student'
-                      && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.gymId == gymId
-                      && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.ativo == true;
-        // 3) o dono cadastra professores
-        allow create: if ehDono(gymId) && request.resource.data.role in ['coach', 'student'];
+        allow create: if (ehProprio(uid) && request.resource.data.role == 'owner' && get(/databases/$(database)/documents/gyms/$(gymId)).data.ownerUid == request.auth.uid)
+          || (ehProprio(uid) && request.resource.data.role == 'student' && conviteOk(gymId, request.resource.data.inviteCode))
+          || (ehDono(gymId) && request.resource.data.role in ['coach', 'student']);
         allow update: if ehDono(gymId) && uid != request.auth.uid;
         allow delete: if ehDono(gymId) || ehProprio(uid);
       }
-
-      // ficha do aluno (resumo, status, professor responsável)
       match /students/{uid} {
         allow read: if ehProprio(uid) || ehEquipe(gymId);
         allow create: if (ehProprio(uid) && membro(gymId)) || ehEquipe(gymId);
-        allow update: if ehEquipe(gymId) || (ehProprio(uid) && membro(gymId)
-                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'coachUid']));
+        allow update: if ehEquipe(gymId) || (ehProprio(uid) && membro(gymId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'coachUid']));
         allow delete: if ehEquipe(gymId) || ehProprio(uid);
-
-        // fichas de treino: professor escreve, aluno só lê
-        match /plans/{planId} {
-          allow read: if ehProprio(uid) || ehEquipe(gymId);
-          allow write: if ehEquipe(gymId);
-        }
-        // avaliações físicas (dado sensível): professor escreve, aluno só lê as suas
-        match /assessments/{id} {
-          allow read: if ehProprio(uid) || ehEquipe(gymId);
-          allow write: if ehEquipe(gymId);
-        }
-        // treinos feitos: o aluno grava, a equipe lê
-        match /workouts/{id} {
-          allow read: if ehProprio(uid) || ehEquipe(gymId);
-          allow write: if ehProprio(uid) && membro(gymId);
-        }
-        // consentimento LGPD: o aluno grava o dele, a equipe lê
-        match /consent/{id} {
-          allow read: if ehProprio(uid) || ehEquipe(gymId);
-          allow create, update: if ehProprio(uid);
-        }
+        match /plans/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
+        match /assessments/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehEquipe(gymId); }
+        match /workouts/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow write: if ehProprio(uid) && membro(gymId); }
+        match /consent/{id} { allow read: if ehProprio(uid) || ehEquipe(gymId); allow create, update: if ehProprio(uid); }
       }
-
-      // modelos de ficha da academia
-      match /templates/{id} {
-        allow read: if ehEquipe(gymId);
-        allow write: if ehEquipe(gymId);
-      }
+      match /templates/{id} { allow read, write: if ehEquipe(gymId); }
     }
   }
 }
