@@ -2,18 +2,12 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function logado() { return request.auth != null; }
-    function ehEquipe(g) {
-      return logado() && firestore.exists(/databases/(default)/documents/gyms/$(g)/members/$(request.auth.uid))
-        && firestore.get(/databases/(default)/documents/gyms/$(g)/members/$(request.auth.uid)).data.role in ['owner', 'coach'];
-    }
-
-    // Logo da academia: qualquer membro lê, só a equipe grava.
+    function ehEquipe(g) { return logado() && firestore.exists(/databases/(default)/documents/gyms/$(g)/members/$(request.auth.uid)) && firestore.get(/databases/(default)/documents/gyms/$(g)/members/$(request.auth.uid)).data.role in ['owner', 'coach']; }
+    function ehMembro(g) { return logado() && firestore.exists(/databases/(default)/documents/gyms/$(g)/members/$(request.auth.uid)); }
     match /gyms/{gymId}/logo/{file} {
-      allow read: if logado() && firestore.exists(/databases/(default)/documents/gyms/$(gymId)/members/$(request.auth.uid));
+      allow read: if ehMembro(gymId);
       allow write: if ehEquipe(gymId) && request.resource.size < 2 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
     }
-
-    // Fotos das avaliações (dado sensível): o próprio aluno e a equipe da academia leem; só a equipe grava.
     match /gyms/{gymId}/students/{uid}/assessments/{allPaths=**} {
       allow read: if logado() && (request.auth.uid == uid || ehEquipe(gymId));
       allow write: if ehEquipe(gymId) && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
