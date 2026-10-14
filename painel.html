@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A0F33">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Painel do professor</title>
+<style>
+  @font-face { font-family: 'Big Shoulders Display'; font-weight: 800; font-display: swap; src: url(fonts/big-shoulders-display-latin-800-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Barlow'; font-weight: 400; font-display: swap; src: url(fonts/barlow-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Barlow'; font-weight: 600; font-display: swap; src: url(fonts/barlow-latin-600-normal.woff2) format('woff2'); }
+  :root { --bg:#F1EFF7; --surface:#fff; --ink:#1A0F33; --muted:#6A6384; --line:#DCD6EA; --accent:#6A3DF0; --accent-ink:#fff; --danger:#B42318; --good:#12A06B;
+          --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#110A20; --surface:#1B1230; --ink:#F2EEFB; --muted:#9A90B8; --line:#2E2347; --accent:#A187FF; --accent-ink:#140A2B; --danger:#FF8A80; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:17px; line-height:1.4; min-height:100vh; }
+  h1,h2 { font-family:var(--display); font-weight:800; letter-spacing:.02em; text-transform:uppercase; margin:0 0 .4em; }
+  h1 { font-size:2rem; } h2 { font-size:1.4rem; }
+  .wrap { max-width:760px; margin:0 auto; padding:16px; }
+  header.top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:var(--ink); color:var(--bg); }
+  header.top b { font-family:var(--display); font-size:1.5rem; text-transform:uppercase; letter-spacing:.03em; }
+  header.top button { background:transparent; color:inherit; border:1px solid currentColor; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin:12px 0; }
+  label { display:block; font-weight:600; margin:12px 0 4px; }
+  input, select { width:100%; font:inherit; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); }
+  button { font:inherit; font-weight:600; padding:12px 18px; border-radius:10px; border:0; background:var(--accent); color:var(--accent-ink); cursor:pointer; min-height:46px; }
+  button.sec { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row > * { flex:0 0 auto; } .row > .grow { flex:1 1 200px; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .err { color:var(--danger); margin-top:10px; font-weight:600; }
+  .ok { color:var(--good); font-weight:600; }
+  .tabs { display:flex; gap:8px; margin:12px 0; }
+  .tabs button { background:transparent; color:var(--ink); border:1px solid var(--line); flex:1; }
+  .tabs button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .aluno { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
+  .aluno:first-child { border-top:0; }
+  .aluno .nome { font-weight:600; }
+  .pill { font-size:.8rem; padding:2px 10px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .pill.on { color:var(--good); border-color:var(--good); }
+  .code { font-family:var(--display); font-size:2.6rem; letter-spacing:.12em; font-weight:800; margin:6px 0; word-break:break-all; }
+  .hide { display:none !important; }
+  .center { text-align:center; padding:48px 16px; }
+</style>
+</head>
+<body>
+
+<div id="v-load" class="center"><h1>Carregando…</h1><p class="muted">Conectando ao servidor.</p></div>
+
+<!-- Entrar -->
+<div id="v-login" class="wrap hide">
+  <h1>Painel do professor</h1>
+  <p class="muted">Entre para gerenciar a sua academia.</p>
+  <div class="card">
+    <label for="l-email">E-mail</label><input id="l-email" type="email" autocomplete="username">
+    <label for="l-pass">Senha</label><input id="l-pass" type="password" autocomplete="current-password">
+    <div class="row" style="margin-top:14px">
+      <button id="b-entrar">Entrar</button>
+      <button id="b-criar" class="sec">Criar conta</button>
+      <button id="b-google" class="sec">Entrar com Google</button>
+    </div>
+    <p style="margin:12px 0 0"><a href="#" id="b-esqueci" class="muted">Esqueci a senha</a></p>
+    <p class="muted" id="l-aviso">No iPhone, abra este endereço direto no Safari (não dentro do WhatsApp ou de outro app).</p>
+    <div class="err" id="l-err"></div>
+  </div>
+</div>
+
+<!-- Ainda sem academia -->
+<div id="v-setup" class="wrap hide">
+  <h1>Bem-vindo</h1>
+  <div class="card">
+    <h2>Abrir uma academia</h2>
+    <p class="muted">Você será o dono e poderá cadastrar alunos e montar fichas.</p>
+    <label for="s-nome">Nome da academia</label><input id="s-nome" placeholder="Ex.: Pegada Maromba">
+    <div class="row" style="margin-top:14px"><button id="b-abrir">Criar academia</button><button class="sec" id="b-sair1">Sair</button></div>
+    <div class="err" id="s-err"></div>
+  </div>
+</div>
+
+<!-- Painel -->
+<div id="v-main" class="hide">
+  <header class="top"><b id="m-gym">Academia</b><span class="row"><span class="muted" id="m-user" style="color:inherit;opacity:.8"></span><button id="b-sair2">Sair</button></span></header>
+  <div class="wrap">
+    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button></div>
+
+    <section id="p-alunos">
+      <div class="row"><div class="grow"><input id="a-busca" placeholder="Buscar aluno por nome ou e-mail" type="search"></div>
+        <div><select id="a-filtro"><option value="todos">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select></div></div>
+      <div class="card" id="a-lista"><p class="muted">Carregando alunos…</p></div>
+    </section>
+
+    <section id="p-convite" class="hide">
+      <div class="card">
+        <h2>Código de convite</h2>
+        <p class="muted">Passe este código ao aluno. Ele cria a conta no app, digita o código e fica ligado à sua academia.</p>
+        <div class="code" id="c-code">—</div>
+        <div class="row"><button id="c-copiar" class="sec">Copiar código</button><button id="c-novo" class="danger">Gerar novo código</button></div>
+        <p class="muted">Gerar um novo código desativa o anterior. Quem já entrou continua na academia.</p>
+        <div class="ok" id="c-msg"></div><div class="err" id="c-err"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+import { firebaseConfig } from './firebase-config.js';
+const V = '10.12.5', CDN = `https://www.gstatic.com/firebasejs/${V}/`;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const show = id => { ['v-load','v-login','v-setup','v-main'].forEach(v => $(v).classList.toggle('hide', v !== id)); };
+
+const MSG = {
+  'auth/invalid-credential': 'E-mail ou senha incorretos.', 'auth/wrong-password': 'E-mail ou senha incorretos.', 'auth/user-not-found': 'E-mail ou senha incorretos.',
+  'auth/invalid-email': 'E-mail inválido.', 'auth/email-already-in-use': 'Este e-mail já tem conta. Use "Entrar".',
+  'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.', 'auth/missing-password': 'Digite a senha.',
+  'auth/popup-closed-by-user': 'A janela do Google foi fechada.', 'auth/popup-blocked': 'O navegador bloqueou a janela do Google. Libere pop-ups ou abra direto no Safari/Chrome.',
+  'auth/network-request-failed': 'Sem internet.', 'auth/too-many-requests': 'Muitas tentativas. Espere um pouco.',
+  'permission-denied': 'Sem permissão para essa ação.'
+};
+const erro = e => MSG[e && e.code] || ('Algo deu errado' + (e && e.code ? ' (' + e.code + ')' : '') + '.');
+
+let A, AU, FS, auth, db;
+try {
+  [A, AU, FS] = await Promise.all([import(CDN + 'firebase-app.js'), import(CDN + 'firebase-auth.js'), import(CDN + 'firebase-firestore.js')]);
+} catch {
+  $('v-load').innerHTML = '<h1>Sem conexão</h1><p class="muted">Não consegui carregar. Verifique a internet e recarregue a página.</p>';
+  throw new Error('firebase-offline');
+}
+const app = A.initializeApp(firebaseConfig);
+auth = AU.getAuth(app); db = FS.getFirestore(app);
+
+let me = null, gymId = null, gym = null, alunos = [];
+
+/* ---------- login ---------- */
+const lerForm = () => ({ email: $('l-email').value.trim(), pass: $('l-pass').value });
+const lerr = t => { $('l-err').textContent = t || ''; };
+$('b-entrar').onclick = async () => { lerr(); const { email, pass } = lerForm(); try { await AU.signInWithEmailAndPassword(auth, email, pass); } catch (e) { lerr(erro(e)); } };
+$('b-criar').onclick = async () => { lerr(); const { email, pass } = lerForm(); try { await AU.createUserWithEmailAndPassword(auth, email, pass); } catch (e) { lerr(erro(e)); } };
+$('b-google').onclick = async () => { lerr(); try { const p = new AU.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await AU.signInWithPopup(auth, p); } catch (e) { lerr(erro(e)); } };
+$('b-esqueci').onclick = async ev => { ev.preventDefault(); lerr(); const { email } = lerForm(); if (!email) return lerr('Digite o e-mail acima e toque de novo.');
+  try { await AU.sendPasswordResetEmail(auth, email); lerr('Enviamos um e-mail para redefinir a senha.'); } catch (e) { lerr(erro(e)); } };
+const sair = () => AU.signOut(auth);
+$('b-sair1').onclick = sair; $('b-sair2').onclick = sair;
+
+/* ---------- academia ---------- */
+const ALFA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';           // sem letras parecidas (0/O, 1/I/L)
+function novoCodigo() { const a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, n => ALFA[n % ALFA.length]).join(''); }
+const fmt = c => c ? c.slice(0, 4) + '-' + c.slice(4) : '—';
+
+async function carregarAcademia() {
+  const u = await FS.getDoc(FS.doc(db, 'users', me.uid));
+  gymId = u.exists() ? u.data().gymId || null : null;
+  if (!gymId) return null;
+  const m = await FS.getDoc(FS.doc(db, 'gyms', gymId, 'members', me.uid));
+  if (!m.exists() || !['owner', 'coach'].includes(m.data().role)) return null;   // alunos usam o app, não o painel
+  const g = await FS.getDoc(FS.doc(db, 'gyms', gymId));
+  if (!g.exists()) return null;
+  gym = { id: gymId, ...g.data(), role: m.data().role };
+  return gym;
+}
+
+$('b-abrir').onclick = async () => {
+  $('s-err').textContent = '';
+  const nome = $('s-nome').value.trim();
+  if (nome.length < 2) { $('s-err').textContent = 'Digite o nome da academia.'; return; }
+  $('b-abrir').disabled = true;
+  try {
+    const gref = FS.doc(FS.collection(db, 'gyms'));
+    const code = novoCodigo();
+    await FS.setDoc(gref, { nome, ownerUid: me.uid, corDestaque: '#6A3DF0', inviteCode: code, criadoEm: new Date().toISOString() });
+    await FS.setDoc(FS.doc(db, 'gyms', gref.id, 'members', me.uid), { role: 'owner', nome: me.displayName || '', email: me.email || '', criadoEm: new Date().toISOString() });
+    await FS.setDoc(FS.doc(db, 'invites', code), { gymId: gref.id, ativo: true, criadoPor: me.uid, criadoEm: new Date().toISOString() });
+    await FS.setDoc(FS.doc(db, 'users', me.uid), { gymId: gref.id }, { merge: true });
+    await iniciar();
+  } catch (e) { $('s-err').textContent = erro(e); }
+  $('b-abrir').disabled = false;
+};
+
+/* ---------- alunos ---------- */
+async function carregarAlunos() {
+  $('a-lista').innerHTML = '<p class="muted">Carregando alunos…</p>';
+  try {
+    const s = await FS.getDocs(FS.collection(db, 'gyms', gymId, 'students'));
+    alunos = s.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+    desenharAlunos();
+  } catch (e) { $('a-lista').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
+}
+function desenharAlunos() {
+  const q = $('a-busca').value.trim().toLowerCase(), f = $('a-filtro').value;
+  const lista = alunos.filter(a => (f === 'todos' || (a.status || 'ativo') === f) && (!q || (String(a.nome || '') + ' ' + String(a.email || '')).toLowerCase().includes(q)));
+  if (!alunos.length) { $('a-lista').innerHTML = '<p class="muted">Nenhum aluno ainda. Vá na aba <b>Convite</b>, copie o código e passe para o primeiro aluno.</p>'; return; }
+  if (!lista.length) { $('a-lista').innerHTML = '<p class="muted">Nenhum aluno encontrado.</p>'; return; }
+  $('a-lista').innerHTML = lista.map(a => {
+    const st = a.status || 'ativo';
+    return `<div class="aluno"><div class="grow" style="flex:1"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div></div>
+      <span class="pill ${st === 'ativo' ? 'on' : ''}">${st === 'ativo' ? 'Ativo' : 'Inativo'}</span>
+      <button class="sec" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div>`;
+  }).join('');
+}
+$('a-lista').onclick = async ev => {
+  const b = ev.target.closest('button[data-uid]'); if (!b) return;
+  const novo = b.dataset.st === 'ativo' ? 'inativo' : 'ativo';
+  b.disabled = true;
+  try { await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', b.dataset.uid), { status: novo });
+    const a = alunos.find(x => x.uid === b.dataset.uid); if (a) a.status = novo; desenharAlunos(); }
+  catch (e) { b.disabled = false; alert(erro(e)); }
+};
+$('a-busca').oninput = desenharAlunos; $('a-filtro').onchange = desenharAlunos;
+
+/* ---------- convite ---------- */
+function mostrarCodigo() { $('c-code').textContent = fmt(gym.inviteCode); }
+$('c-copiar').onclick = async () => { try { await navigator.clipboard.writeText(gym.inviteCode); $('c-msg').textContent = 'Código copiado.'; } catch { $('c-msg').textContent = 'Copie manualmente: ' + gym.inviteCode; } };
+$('c-novo').onclick = async () => {
+  $('c-msg').textContent = ''; $('c-err').textContent = '';
+  if (!confirm('Gerar um novo código? O código atual deixa de funcionar para novos alunos.')) return;
+  try {
+    const code = novoCodigo();
+    await FS.setDoc(FS.doc(db, 'invites', code), { gymId, ativo: true, criadoPor: me.uid, criadoEm: new Date().toISOString() });
+    if (gym.inviteCode) await FS.updateDoc(FS.doc(db, 'invites', gym.inviteCode), { ativo: false });
+    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { inviteCode: code });
+    gym.inviteCode = code; mostrarCodigo(); $('c-msg').textContent = 'Novo código criado.';
+  } catch (e) { $('c-err').textContent = erro(e); }
+};
+
+/* ---------- abas ---------- */
+function aba(n) { $('p-alunos').classList.toggle('hide', n !== 'alunos'); $('p-convite').classList.toggle('hide', n !== 'convite');
+  $('t-alunos').classList.toggle('on', n === 'alunos'); $('t-convite').classList.toggle('on', n === 'convite'); }
+$('t-alunos').onclick = () => aba('alunos'); $('t-convite').onclick = () => aba('convite');
+
+/* ---------- início ---------- */
+async function iniciar() {
+  show('v-load');
+  try {
+    const g = await carregarAcademia();
+    if (!g) { show('v-setup'); return; }
+    $('m-gym').textContent = g.nome; $('m-user').textContent = me.displayName || me.email || '';
+    document.title = g.nome + ' — painel';
+    mostrarCodigo(); aba('alunos'); show('v-main'); carregarAlunos();
+  } catch (e) {
+    $('v-load').innerHTML = '<h1>Ops</h1><p class="err">' + esc(erro(e)) + '</p><button onclick="location.reload()">Tentar de novo</button>';
+    show('v-load');
+  }
+}
+AU.onAuthStateChanged(auth, u => { me = u; if (!u) { gymId = gym = null; show('v-login'); return; } iniciar(); });
+</script>
+</body>
+</html>
