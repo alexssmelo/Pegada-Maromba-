@@ -2364,7 +2364,7 @@
 
 
   /* ---------- conta e nuvem ---------- */
-  const Acct = { user: LAST && LAST.uid ? LAST : null, mode: 'in', sync: '', admin: false };
+  const Acct = { user: LAST && LAST.uid ? LAST : null, mode: 'in', sync: '', admin: false, gym: undefined };
   const SYNC_TXT = {
     syncing: 'Sincronizando…', ok: 'Dados sincronizados.',
     offline: 'Sem internet. Sincroniza quando a conexão voltar.', error: 'Não foi possível sincronizar. Tente de novo.'
@@ -2446,7 +2446,8 @@
     const next = u ? u.uid : '';
     Acct.user = u ? { uid: u.uid, name: u.name || '', email: u.email || '' } : null;
     try { u ? localStorage.setItem('treino.lastUser', JSON.stringify(Acct.user)) : localStorage.removeItem('treino.lastUser'); } catch {}
-    Acct.admin = false;
+    Acct.admin = false; Acct.gym = undefined;
+    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
     if (u && window.TreinoCloud && window.TreinoCloud.isAdmin) window.TreinoCloud.isAdmin().then(v => { Acct.admin = v; if ($('#acct').open) renderAcct(); });
     if (u) setTimeout(maybeIntro, 1200);
     if (next !== ns) {
@@ -2602,12 +2603,27 @@
     catch (err) { gateBusy(false); gMsg(ERR_TXT[err && err.code] || 'Não foi possível continuar. Tente de novo.'); }
   });
 
+  /* academia: o aluno entra com o código do professor */
+  function gymCard() {
+    const g = Acct.gym;
+    if (g === undefined) return '<div class="fld"><label>Minha academia</label><p class="hint" style="margin:0">Verificando…</p></div>';
+    if (g && g.role === 'student') return `<div class="fld"><label>Minha academia</label><p style="margin:0"><b>${esc(g.nome || 'Academia')}</b></p><p class="hint" style="margin:4px 0 0">Você está vinculado a esta academia. Seu professor monta a sua ficha.</p></div>`;
+    if (g) return `<div class="fld"><label>Academia</label><p style="margin:0"><b>${esc(g.nome || 'Academia')}</b></p><p class="hint" style="margin:4px 0 0">Você é da equipe. Gerencie alunos e fichas no <a href="painel.html">painel do professor</a>.</p></div>`;
+    return `<div class="fld"><label for="gym-code">Entrar em uma academia</label>
+      <input id="gym-code" autocomplete="off" autocapitalize="characters" maxlength="9" placeholder="Código (ex.: ABCD-2345)">
+      <label class="hint" style="display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;font-size:14px"><input type="checkbox" id="gym-ok" style="width:auto;margin-top:3px"><span>Autorizo a academia a registrar meus dados de saúde (peso, medidas, fotos de avaliação e treinos). Li a <a href="privacidade.html" target="_blank" rel="noopener">política de privacidade</a>.</span></label>
+      <button class="btn small" data-a="joingym" style="margin-top:10px">Entrar na academia</button>
+      <p class="hint" id="gym-msg" role="status" style="margin:8px 0 0"></p></div>`;
+  }
+  const GYM_ERR = { 'treino/convite-invalido': 'Código inválido ou desativado. Confira com seu professor.', 'treino/ja-na-academia': 'Você já está em uma academia.', 'permission-denied': 'Não foi possível entrar com esse código.' };
+
   /* janela da conta (só para quem já entrou) */
   function renderAcct() {
     const box = $('#acct-body'), u = Acct.user;
     if (!u) { box.innerHTML = ''; return; }
     box.innerHTML = `<h2>Sua conta</h2>
       <p class="muted" style="margin:0">${u.name ? esc(u.name) + '<br>' : ''}${esc(u.email)}</p>
+      ${gymCard()}
       <p id="acct-status" role="status" style="margin:12px 0 0">${esc(SYNC_TXT[Acct.sync] || '')}</p>
       <p class="hint">Treinos, medidas e progresso dos planos ficam salvos na conta e aparecem em qualquer aparelho.</p>
       <div class="btn-row"><button class="btn small" data-a="sync">Sincronizar agora</button>
@@ -2627,6 +2643,14 @@
     const a = b.dataset.a, C = window.TreinoCloud;
     if (a === 'close') $('#acct').close();
     else if (a === 'sync') { C && C.sync(); }
+    else if (a === 'joingym') {
+      const msg = $('#gym-msg'), code = $('#gym-code').value;
+      if (!$('#gym-ok').checked) { msg.textContent = 'Marque a autorização para continuar.'; return; }
+      if (!C || !C.joinGym) { msg.textContent = 'Sem conexão com o servidor.'; return; }
+      b.disabled = true; msg.textContent = 'Entrando…';
+      try { Acct.gym = await C.joinGym(code); renderAcct(); }
+      catch (er) { b.disabled = false; msg.textContent = GYM_ERR[er && er.code] || 'Não foi possível entrar agora. Tente de novo.'; }
+    }
     else if (a === 'admin') { $('#acct').close(); openAdmin(); }
     else if (a === 'del') {
       if (S.status !== 'idle' || P.on) { alert('Finalize o treino atual antes de excluir a conta.'); return; }
