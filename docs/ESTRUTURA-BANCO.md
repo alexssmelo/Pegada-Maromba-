@@ -21,3 +21,11 @@ Fotos (Storage): gyms/{gymId}/students/{uid}/assessments/...  e  gyms/{gymId}/lo
 
 ## Como o aluno entra
 O professor gera um convite (código). O aluno cria conta, digita o código e vira "student" daquela academia.
+
+## Atualizações
+- invites/{código}: { gymId, ativo, papel: "student" (padrão) | "coach" }. O código de professor só o dono cria.
+- gyms/{id}: também guarda inviteCode (alunos), inviteCoach (professores), corDestaque, logoUrl.
+- students/{uid}/plans/atual: { nome, dias: [{ nome, descanso, ex: [{ n, s, r, kg, obs, id? }] }] }
+- students/{uid}/assessments/{id}: { data, sexo, nascimento, peso, altura, medidas{}, protocolo (p3|p7|manual), dobras{}, gorduraManual, imc, gordura, massaMagra, massaGorda, fotos{frente,lado,costas = caminho no Storage}, obs }
+- students/{uid}/workouts/{id}: resumo dos treinos feitos (o app do aluno envia só os feitos depois de entrar na academia).
+- Cálculo de gordura: Jackson & Pollock (3 e 7 dobras) + Siri.

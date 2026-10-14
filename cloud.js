@@ -92,6 +92,19 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
         settings: merged.settings, settingsT: merged.settingsT || 0, gym: merged.gym || {}
       }), { merge: true });
       await writeProfile(u, merged);
+      try {                                                          // aluno de academia: o professor acompanha os treinos feitos depois de entrar
+        const g = await gymInfo();
+        if (g && g.role === 'student') {
+          const col = FS.collection(db, 'gyms', g.id, 'students', u.uid, 'workouts');
+          const have = new Set((await FS.getDocs(col)).docs.map(d => d.id));
+          const novos = merged.history.filter(h => h.date >= (g.desde || '') && !have.has(String(h.id)) && !merged.deleted[h.id]);
+          for (let i = 0; i < novos.length; i += 400) {
+            const b = FS.writeBatch(db);
+            novos.slice(i, i + 400).forEach(h => b.set(FS.doc(db, 'gyms', g.id, 'students', u.uid, 'workouts', String(h.id)), clean(resumo(h))));
+            await b.commit();
+          }
+        }
+      } catch (e) { console.warn('Envio à academia falhou', e); }
       emit('ok');
     } catch (e) {
       console.warn('Sincronização falhou', e);
@@ -104,20 +117,25 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
 
   // ---------- academia (aluno entra com o código do professor) ----------
   const erroCode = c => Object.assign(new Error(c), { code: c });
-  async function gymInfo() {
+  let gymCache = null;
+  async function gymInfo(force) {
     const u = auth.currentUser; if (!u) return null;
+    if (!force && gymCache && gymCache.uid === u.uid && Date.now() - gymCache.t < 5 * 60 * 1000) return gymCache.v;
+    const v = await gymInfoRaw(u); gymCache = { uid: u.uid, t: Date.now(), v }; return v;
+  }
+  async function gymInfoRaw(u) {
     const us = await FS.getDoc(FS.doc(db, 'users', u.uid));
     const gid = us.exists() ? us.data().gymId : null; if (!gid) return null;
     const m = await FS.getDoc(FS.doc(db, 'gyms', gid, 'members', u.uid)); if (!m.exists()) return null;
     const g = await FS.getDoc(FS.doc(db, 'gyms', gid));
     const gd = g.exists() ? g.data() : {};
-    return { id: gid, nome: gd.nome || '', cor: gd.corDestaque || '', logo: gd.logoUrl || '', role: m.data().role };
+    return { id: gid, nome: gd.nome || '', cor: gd.corDestaque || '', logo: gd.logoUrl || '', role: m.data().role, desde: m.data().criadoEm || '' };
   }
   async function joinGym(code) {
     const u = auth.currentUser; if (!u) throw erroCode('auth/no-user');
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length !== 8) throw erroCode('treino/convite-invalido');
-    if (await gymInfo()) throw erroCode('treino/ja-na-academia');
+    if (await gymInfo(true)) throw erroCode('treino/ja-na-academia');
     const inv = await FS.getDoc(FS.doc(db, 'invites', code));
     if (!inv.exists() || inv.data().ativo !== true) throw erroCode('treino/convite-invalido');
     const gid = inv.data().gymId, now = new Date().toISOString();
@@ -126,11 +144,28 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
     await FS.setDoc(FS.doc(db, 'gyms', gid, 'students', u.uid), { nome, email: u.email || '', status: 'ativo', criadoEm: now });
     await FS.setDoc(FS.doc(db, 'gyms', gid, 'students', u.uid, 'consent', 'termo'), { aceito: true, em: now, versao: '2026-10' });
     await FS.setDoc(FS.doc(db, 'users', u.uid), { gymId: gid }, { merge: true });
-    return gymInfo();
+    return gymInfo(true);
+  }
+  async function getPlan() {
+    const g = await gymInfo(); if (!g || g.role !== 'student') return null;
+    const d = await FS.getDoc(FS.doc(db, 'gyms', g.id, 'students', auth.currentUser.uid, 'plans', 'atual'));
+    return d.exists() ? d.data() : null;
+  }
+  async function getAssessments() {
+    const g = await gymInfo(); if (!g || g.role !== 'student') return [];
+    const s = await FS.getDocs(FS.collection(db, 'gyms', g.id, 'students', auth.currentUser.uid, 'assessments'));
+    return s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
+  }
+  const resumo = h => ({ id: h.id, date: h.date, act: h.act, ms: h.ms || 0, kcal: Math.round(h.kcal || 0), dist: Math.round(h.dist || 0), n: h.n || 0, plan: String(h.plan || '').slice(0, 80), weight: h.weight || null,
+    gym: (h.gym || []).map(e => ({ n: e.n, sets: e.sets, r: String(e.r || ''), kg: String(e.kg || '') })) });
+
+  async function fotoUrl(path) {
+    const S = await import(CDN + 'firebase-storage.js');
+    return S.getDownloadURL(S.ref(S.getStorage(app), path));
   }
 
   window.TreinoCloud = {
-    gymInfo, joinGym,
+    gymInfo, joinGym, getPlan, getAssessments, fotoUrl,
     sync,
     async signIn(email, pass) { await AU.signInWithEmailAndPassword(auth, email, pass); },
     async signUp(name, email, pass) {
@@ -159,6 +194,15 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
       let batch = FS.writeBatch(db), n = 0;
       for (const d of snap.docs) { batch.delete(d.ref); if (++n % 400 === 0) { await batch.commit(); batch = FS.writeBatch(db); } }
       await batch.commit();
+      try {                                                          // sai da academia: apaga o que o aluno pode apagar (avaliações e ficha ficam com a equipe, que pode apagar)
+        const g = await gymInfo(true);
+        if (g && g.role === 'student') {
+          const ws = await FS.getDocs(FS.collection(db, 'gyms', g.id, 'students', u.uid, 'workouts'));
+          for (const d of ws.docs) await FS.deleteDoc(d.ref);
+          await FS.deleteDoc(FS.doc(db, 'gyms', g.id, 'students', u.uid));
+          await FS.deleteDoc(FS.doc(db, 'gyms', g.id, 'members', u.uid));
+        }
+      } catch (e) { console.warn('Saída da academia falhou', e); }
       await FS.deleteDoc(FS.doc(db, 'users', u.uid));
       try { await FS.deleteDoc(FS.doc(db, 'profiles', u.uid)); } catch {}
       await AU.deleteUser(u);

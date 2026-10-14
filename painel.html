@@ -50,6 +50,15 @@
   .ex .full { grid-column:1 / -1; } .ex label { margin:0 0 2px; font-size:.8rem; color:var(--muted); font-weight:400; }
   .ex .acoes { grid-column:1 / -1; display:flex; gap:6px; justify-content:flex-end; } .ex .acoes button { min-height:38px; padding:6px 12px; }
   .sticky { position:sticky; bottom:0; background:var(--bg); padding:10px 0; display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--line); }
+  .aluno { flex-wrap:wrap; } .aluno .btns { display:flex; gap:6px; flex-wrap:wrap; width:100%; } .aluno .btns button { min-height:40px; padding:6px 12px; }
+  .g2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .g2 label, .g3 label { margin-top:8px; } h3 { font-family:var(--display); text-transform:uppercase; font-size:1.15rem; margin:18px 0 4px; }
+  table.t { width:100%; border-collapse:collapse; font-size:.95rem; } table.t th, table.t td { text-align:left; padding:6px 4px; border-top:1px solid var(--line); } table.t th { color:var(--muted); font-weight:600; }
+  .up { color:var(--danger); } .down { color:var(--good); } .kpi { display:flex; gap:10px; flex-wrap:wrap; } .kpi > div { flex:1 1 90px; background:var(--bg); border-radius:10px; padding:10px; } .kpi b { display:block; font-family:var(--display); font-size:1.6rem; }
+  .fotos { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } .fotos img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:10px; background:var(--bg); }
+  .bar { display:flex; align-items:flex-end; gap:6px; height:90px; } .bar div { flex:1; background:var(--accent); border-radius:4px 4px 0 0; min-height:2px; position:relative; } .bar span { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:.75rem; }
+  svg.gr { width:100%; height:auto; } details { border-top:1px solid var(--line); padding:8px 0; } summary { cursor:pointer; font-weight:600; }
+  @media print { header.top, .tabs, .noprint, #v-login, #v-setup { display:none !important; } body { background:#fff; color:#000; } .card { border:0; padding:0; } .wrap { max-width:none; } }
   .hide { display:none !important; }
   .center { text-align:center; padding:48px 16px; }
 </style>
@@ -86,13 +95,21 @@
     <div class="row" style="margin-top:14px"><button id="b-abrir">Criar academia</button><button class="sec" id="b-sair1">Sair</button></div>
     <div class="err" id="s-err"></div>
   </div>
+  <div class="card" id="s-prof">
+    <h2>Sou professor</h2>
+    <p class="muted">Digite o código que o dono da academia te passou.</p>
+    <label for="s-code">Código de professor</label><input id="s-code" autocomplete="off" autocapitalize="characters" maxlength="9" placeholder="ABCD-2345">
+    <div class="row" style="margin-top:14px"><button id="b-prof">Entrar na equipe</button></div>
+    <div class="err" id="s-err2"></div>
+  </div>
+  <div class="card hide" id="s-aluno"><h2>Conta de aluno</h2><p>Esta conta está ligada a uma academia como <b>aluno</b>. Para usar o painel, entre com outra conta (de professor).</p><button class="sec" id="b-sair3">Sair</button></div>
 </div>
 
 <!-- Painel -->
 <div id="v-main" class="hide">
   <header class="top"><span class="brand"><img id="m-logo" class="hide" alt=""><b id="m-gym">Academia</b></span><span class="row"><span class="muted" id="m-user" style="color:inherit;opacity:.8"></span><button id="b-sair2">Sair</button></span></header>
   <div class="wrap">
-    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button><button id="t-marca">Marca</button></div>
+    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button><button id="t-marca">Marca</button><button id="t-equipe">Equipe</button></div>
 
     <section id="p-alunos">
       <div class="row"><div class="grow"><input id="a-busca" placeholder="Buscar aluno por nome ou e-mail" type="search"></div>
@@ -135,6 +152,31 @@
       </div>
     </section>
 
+    <section id="p-equipe" class="hide">
+      <div class="card"><h2>Equipe</h2><div id="e-lista"><p class="muted">Carregando…</p></div></div>
+      <div class="card"><h2>Convidar professor</h2>
+        <p class="muted">O professor cria a conta no painel, escolhe "Sou professor" e digita este código.</p>
+        <div class="code" id="e-code">—</div>
+        <div class="row"><button class="sec" id="e-copiar">Copiar código</button><button class="danger" id="e-novo">Gerar novo código</button></div>
+        <div class="ok" id="e-msg"></div><div class="err" id="e-err"></div></div>
+    </section>
+
+    <section id="p-aval" class="hide">
+      <div class="row"><button class="sec" id="av-voltar">← Alunos</button><h2 id="av-titulo" style="margin:0">Avaliações</h2></div>
+      <div id="av-lista"></div>
+      <div id="av-form" class="hide"></div>
+    </section>
+
+    <section id="p-evo" class="hide">
+      <div class="row"><button class="sec" id="ev-voltar">← Alunos</button><h2 id="ev-titulo" style="margin:0">Evolução</h2></div>
+      <div id="ev-corpo"><p class="muted">Carregando…</p></div>
+    </section>
+
+    <section id="p-rel" class="hide">
+      <div class="row noprint"><button class="sec" id="rl-voltar">← Avaliações</button><button id="rl-imprimir">Imprimir / salvar PDF</button></div>
+      <div id="rl-corpo" class="card"></div>
+    </section>
+
     <section id="p-convite" class="hide">
       <div class="card">
         <h2>Código de convite</h2>
@@ -175,7 +217,7 @@ try {
 const app = A.initializeApp(firebaseConfig);
 auth = AU.getAuth(app); db = FS.getFirestore(app); storage = SS.getStorage(app);
 
-let me = null, gymId = null, gym = null, alunos = [];
+let me = null, gymId = null, gym = null, alunos = [], souAluno = false;
 
 /* ---------- login ---------- */
 const lerForm = () => ({ email: $('l-email').value.trim(), pass: $('l-pass').value });
@@ -186,7 +228,7 @@ $('b-google').onclick = async () => { lerr(); try { const p = new AU.GoogleAuthP
 $('b-esqueci').onclick = async ev => { ev.preventDefault(); lerr(); const { email } = lerForm(); if (!email) return lerr('Digite o e-mail acima e toque de novo.');
   try { await AU.sendPasswordResetEmail(auth, email); lerr('Enviamos um e-mail para redefinir a senha.'); } catch (e) { lerr(erro(e)); } };
 const sair = () => AU.signOut(auth);
-$('b-sair1').onclick = sair; $('b-sair2').onclick = sair;
+$('b-sair1').onclick = sair; $('b-sair3').onclick = sair; $('b-sair2').onclick = sair;
 
 /* ---------- academia ---------- */
 const ALFA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';           // sem letras parecidas (0/O, 1/I/L)
@@ -198,6 +240,7 @@ async function carregarAcademia() {
   gymId = u.exists() ? u.data().gymId || null : null;
   if (!gymId) return null;
   const m = await FS.getDoc(FS.doc(db, 'gyms', gymId, 'members', me.uid));
+  souAluno = m.exists() && m.data().role === 'student';
   if (!m.exists() || !['owner', 'coach'].includes(m.data().role)) return null;   // alunos usam o app, não o painel
   const g = await FS.getDoc(FS.doc(db, 'gyms', gymId));
   if (!g.exists()) return null;
@@ -205,6 +248,21 @@ async function carregarAcademia() {
   return gym;
 }
 
+$('b-prof').onclick = async () => {
+  $('s-err2').textContent = '';
+  const code = $('s-code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 8) { $('s-err2').textContent = 'O código tem 8 letras e números.'; return; }
+  $('b-prof').disabled = true;
+  try {
+    const inv = await FS.getDoc(FS.doc(db, 'invites', code));
+    if (!inv.exists() || inv.data().ativo !== true || inv.data().papel !== 'coach') throw Object.assign(new Error('x'), { code: 'convite' });
+    const gid = inv.data().gymId, now = new Date().toISOString();
+    await FS.setDoc(FS.doc(db, 'gyms', gid, 'members', me.uid), { role: 'coach', inviteCode: code, nome: me.displayName || '', email: me.email || '', criadoEm: now });
+    await FS.setDoc(FS.doc(db, 'users', me.uid), { gymId: gid }, { merge: true });
+    await iniciar();
+  } catch (e) { $('s-err2').textContent = e.code === 'convite' ? 'Código inválido ou desativado. Confira com o dono da academia.' : erro(e); }
+  $('b-prof').disabled = false;
+};
 $('b-abrir').onclick = async () => {
   $('s-err').textContent = '';
   const nome = $('s-nome').value.trim();
@@ -238,15 +296,17 @@ function desenharAlunos() {
   if (!lista.length) { $('a-lista').innerHTML = '<p class="muted">Nenhum aluno encontrado.</p>'; return; }
   $('a-lista').innerHTML = lista.map(a => {
     const st = a.status || 'ativo';
-    return `<div class="aluno"><div class="grow" style="flex:1"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div></div>
+    return `<div class="aluno"><div class="grow" style="flex:1 1 160px"><div class="nome">${esc(a.nome || 'Sem nome')}</div><div class="muted">${esc(a.email || '')}</div></div>
       <span class="pill ${st === 'ativo' ? 'on' : ''}">${st === 'ativo' ? 'Ativo' : 'Inativo'}</span>
-      <button data-act="ficha" data-uid="${esc(a.uid)}">Ficha</button>
-      <button class="sec" data-act="status" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div>`;
+      <div class="btns"><button data-act="ficha" data-uid="${esc(a.uid)}">Ficha</button><button data-act="aval" data-uid="${esc(a.uid)}">Avaliações</button><button data-act="evo" data-uid="${esc(a.uid)}">Evolução</button>
+      <button class="sec" data-act="status" data-uid="${esc(a.uid)}" data-st="${st}">${st === 'ativo' ? 'Desativar' : 'Ativar'}</button></div></div>`;
   }).join('');
 }
 $('a-lista').onclick = async ev => {
   const b = ev.target.closest('button[data-uid]'); if (!b) return;
   if (b.dataset.act === 'ficha') return abrirFicha(b.dataset.uid);
+  if (b.dataset.act === 'aval') return abrirAval(b.dataset.uid);
+  if (b.dataset.act === 'evo') return abrirEvo(b.dataset.uid);
   const novo = b.dataset.st === 'ativo' ? 'inativo' : 'ativo';
   b.disabled = true;
   try { await FS.updateDoc(FS.doc(db, 'gyms', gymId, 'students', b.dataset.uid), { status: novo });
@@ -271,9 +331,9 @@ $('c-novo').onclick = async () => {
 };
 
 /* ---------- abas ---------- */
-function aba(n) { $('p-alunos').classList.toggle('hide', n !== 'alunos'); $('p-convite').classList.toggle('hide', n !== 'convite'); $('p-ficha').classList.toggle('hide', n !== 'ficha'); $('p-marca').classList.toggle('hide', n !== 'marca'); $('t-marca').classList.toggle('on', n === 'marca');
-  $('t-alunos').classList.toggle('on', n === 'alunos'); $('t-convite').classList.toggle('on', n === 'convite'); }
-$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-convite').onclick = () => aba('convite');
+const SECS = ['alunos', 'convite', 'marca', 'equipe', 'ficha', 'aval', 'evo', 'rel'];
+function aba(n) { SECS.forEach(x => $('p-' + x).classList.toggle('hide', x !== n)); ['alunos', 'convite', 'marca', 'equipe'].forEach(x => $('t-' + x).classList.toggle('on', x === n)); }
+$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-equipe').onclick = () => { abrirEquipe(); aba('equipe'); }; $('t-convite').onclick = () => aba('convite');
 
 
 /* ---------- marca da academia (nome, logo, cor) ---------- */
@@ -430,13 +490,252 @@ $('f-modelo-salvar').onclick = async () => {
   } catch (e) { fmsg(erro(e), false); }
 };
 
+/* ---------- equipe (professores) ---------- */
+async function abrirEquipe() {
+  $('e-msg').textContent = ''; $('e-err').textContent = ''; $('e-code').textContent = fmt(gym.inviteCoach);
+  $('e-lista').innerHTML = '<p class="muted">Carregando…</p>';
+  try {
+    const m = await FS.getDocs(FS.collection(db, 'gyms', gymId, 'members'));
+    const eq = m.docs.map(d => ({ uid: d.id, ...d.data() })).filter(x => x.role === 'owner' || x.role === 'coach');
+    $('e-lista').innerHTML = eq.map(x => `<div class="aluno"><div style="flex:1"><div class="nome">${esc(x.nome || x.email || 'Sem nome')}</div><div class="muted">${esc(x.email || '')}</div></div>
+      <span class="pill ${x.role === 'owner' ? 'on' : ''}">${x.role === 'owner' ? 'Dono' : 'Professor'}</span>
+      ${x.role === 'coach' ? `<button class="danger" data-rm="${esc(x.uid)}">Remover</button>` : ''}</div>`).join('');
+  } catch (e) { $('e-lista').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
+}
+$('e-lista').onclick = async ev => {
+  const b = ev.target.closest('[data-rm]'); if (!b || !confirm('Remover este professor da equipe?')) return;
+  try { await FS.deleteDoc(FS.doc(db, 'gyms', gymId, 'members', b.dataset.rm)); abrirEquipe(); } catch (e) { $('e-err').textContent = erro(e); }
+};
+$('e-copiar').onclick = async () => { try { await navigator.clipboard.writeText(gym.inviteCoach || ''); $('e-msg').textContent = 'Código copiado.'; } catch { $('e-msg').textContent = 'Copie manualmente: ' + gym.inviteCoach; } };
+$('e-novo').onclick = async () => {
+  $('e-msg').textContent = ''; $('e-err').textContent = '';
+  if (gym.inviteCoach && !confirm('Gerar um novo código? O atual deixa de funcionar.')) return;
+  try {
+    const code = novoCodigo();
+    await FS.setDoc(FS.doc(db, 'invites', code), { gymId, ativo: true, papel: 'coach', criadoPor: me.uid, criadoEm: new Date().toISOString() });
+    if (gym.inviteCoach) await FS.updateDoc(FS.doc(db, 'invites', gym.inviteCoach), { ativo: false });
+    await FS.updateDoc(FS.doc(db, 'gyms', gymId), { inviteCoach: code });
+    gym.inviteCoach = code; $('e-code').textContent = fmt(code); $('e-msg').textContent = 'Novo código criado.';
+  } catch (e) { $('e-err').textContent = erro(e); }
+};
+
+/* ---------- utilidades de avaliação ---------- */
+const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : null; };
+const f1 = (n, d = 1) => n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const brData = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
+const idadeEm = (nasc, ref) => { if (!nasc) return null; const a = new Date(nasc), b = new Date(ref || Date.now()); let i = b.getFullYear() - a.getFullYear(); const m = b.getMonth() - a.getMonth(); if (m < 0 || (m === 0 && b.getDate() < a.getDate())) i--; return i >= 0 && i < 120 ? i : null; };
+const SITES = { p3m: ['peitoral', 'abdominal', 'coxa'], p3f: ['triceps', 'suprailiaca', 'coxa'], p7: ['peitoral', 'axilar', 'triceps', 'subescapular', 'abdominal', 'suprailiaca', 'coxa'] };
+const SITE_NOME = { peitoral: 'Peitoral', abdominal: 'Abdominal', coxa: 'Coxa', triceps: 'Tríceps', suprailiaca: 'Supra-ilíaca', axilar: 'Axilar média', subescapular: 'Subescapular' };
+const MEDIDAS = [['braco', 'Braço'], ['antebraco', 'Antebraço'], ['peito', 'Peito'], ['cintura', 'Cintura'], ['abdomen', 'Abdômen'], ['quadril', 'Quadril'], ['coxa', 'Coxa'], ['panturrilha', 'Panturrilha']];
+const FOTOS = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']];
+// Jackson & Pollock (densidade corporal) + equação de Siri (% de gordura)
+function pollock(prot, sexo, idade, d) {
+  if (idade == null || !d) return null;
+  const sites = prot === 'p7' ? SITES.p7 : (sexo === 'F' ? SITES.p3f : SITES.p3m), v = sites.map(k => num(d[k]));
+  if (v.some(x => x == null)) return null;
+  const S = v.reduce((a, b) => a + b, 0); let bd;
+  if (prot === 'p7') bd = sexo === 'F' ? 1.097 - 0.00046971 * S + 0.00000056 * S * S - 0.00012828 * idade : 1.112 - 0.00043499 * S + 0.00000055 * S * S - 0.00028826 * idade;
+  else bd = sexo === 'F' ? 1.0994921 - 0.0009929 * S + 0.0000023 * S * S - 0.0001392 * idade : 1.10938 - 0.0008267 * S + 0.0000016 * S * S - 0.0002574 * idade;
+  const g = 495 / bd - 450; return g > 2 && g < 60 ? g : null;
+}
+function calcular(a) {
+  const peso = num(a.peso), alt = num(a.altura), r = { imc: null, gordura: null, massaGorda: null, massaMagra: null, rcq: null };
+  if (peso && alt) r.imc = peso / ((alt / 100) ** 2);
+  r.gordura = a.protocolo === 'manual' ? num(a.gorduraManual) : pollock(a.protocolo, a.sexo, idadeEm(a.nascimento, a.data), a.dobras);
+  if (peso && r.gordura != null) { r.massaGorda = peso * r.gordura / 100; r.massaMagra = peso - r.massaGorda; }
+  const m = a.medidas || {}; if (num(m.cintura) && num(m.quadril)) r.rcq = num(m.cintura) / num(m.quadril);
+  return r;
+}
+const classeIMC = i => i == null ? '' : i < 18.5 ? 'Abaixo do peso' : i < 25 ? 'Peso normal' : i < 30 ? 'Sobrepeso' : i < 35 ? 'Obesidade grau I' : i < 40 ? 'Obesidade grau II' : 'Obesidade grau III';
+function grafico(pts, un) {
+  const v = pts.filter(p => p.v != null); if (v.length < 2) return '<p class="muted">Com 2 ou mais avaliações o gráfico aparece aqui.</p>';
+  const W = 320, H = 130, P = 26, mn = Math.min(...v.map(p => p.v)), mx = Math.max(...v.map(p => p.v)), sp = (mx - mn) || 1;
+  const X = i => P + i * (W - 2 * P) / (v.length - 1), Y = y => H - P - (y - mn) / sp * (H - 2 * P);
+  return `<svg class="gr" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução em ${esc(un)}"><polyline fill="none" stroke="var(--accent)" stroke-width="3" points="${v.map((p, i) => X(i) + ',' + Y(p.v)).join(' ')}"/>
+    ${v.map((p, i) => `<circle cx="${X(i)}" cy="${Y(p.v)}" r="4" fill="var(--accent)"/><text x="${X(i)}" y="${Y(p.v) - 8}" font-size="10" text-anchor="middle" fill="currentColor">${f1(p.v)}</text><text x="${X(i)}" y="${H - 8}" font-size="9" text-anchor="middle" fill="currentColor" opacity=".7">${esc(p.l)}</text>`).join('')}</svg>`;
+}
+const alunoDe = uid => alunos.find(x => x.uid === uid) || {};
+const apath = (uid, ...r) => ['gyms', gymId, 'students', uid, ...r];
+
+/* ---------- avaliação física ---------- */
+let AV = null;                     // { uid, nome, lista, edit, novas: {frente: Blob...} }
+async function abrirAval(uid) {
+  const a = alunoDe(uid); AV = { uid, nome: a.nome || 'Aluno', lista: [], edit: null, novas: {}, rem: {} };
+  $('av-titulo').textContent = 'Avaliações de ' + AV.nome; document.querySelector('.tabs').classList.add('hide'); aba('aval'); $('av-form').classList.add('hide'); $('av-lista').classList.remove('hide');
+  $('av-lista').innerHTML = '<p class="muted">Carregando…</p>';
+  try {
+    const sn = await FS.getDocs(FS.collection(db, ...apath(uid, 'assessments')));
+    AV.lista = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((x, y) => String(x.data).localeCompare(String(y.data))); listaAval();
+  } catch (e) { $('av-lista').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
+}
+function listaAval() {
+  const L = AV.lista, desc = L.slice().reverse();
+  const opt = L.map(a => `<option value="${esc(a.id)}">${brData(a.data)}</option>`).join('');
+  $('av-lista').innerHTML = `<div class="row"><button id="av-nova">+ Nova avaliação</button></div>
+    ${L.length >= 2 ? `<div class="card"><h2>Comparar</h2><div class="row"><div class="grow"><select id="cp-a">${opt}</select></div><div class="grow"><select id="cp-b">${opt}</select></div><button class="sec" id="cp-ok">Comparar</button></div><div id="cp-out"></div></div>` : ''}
+    <div class="card"><h2>Evolução</h2><h3>Peso (kg)</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: num(a.peso) })), 'kg')}
+      <h3>% de gordura</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: calcular(a).gordura })), '%')}
+      <h3>Cintura (cm)</h3>${grafico(L.map(a => ({ l: brData(a.data).slice(0, 5), v: num((a.medidas || {}).cintura) })), 'cm')}</div>
+    <div class="card"><h2>Histórico</h2>${desc.length ? desc.map(a => { const c = calcular(a); return `<div class="aluno"><div style="flex:1 1 160px"><div class="nome">${brData(a.data)}</div><div class="muted">${f1(num(a.peso))} kg · IMC ${f1(c.imc)} · gordura ${f1(c.gordura)}%</div></div>
+      <div class="btns"><button data-av="rel" data-id="${esc(a.id)}">Relatório</button><button class="sec" data-av="ed" data-id="${esc(a.id)}">Editar</button><button class="danger" data-av="rm" data-id="${esc(a.id)}">Excluir</button></div></div>`; }).join('') : '<p class="muted">Nenhuma avaliação ainda.</p>'}</div>`;
+  if (L.length >= 2) { $('cp-a').value = L[L.length - 2].id; $('cp-b').value = L[L.length - 1].id; }
+}
+$('av-voltar').onclick = () => { AV = null; document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); };
+$('av-lista').onclick = async ev => {
+  if (ev.target.id === 'av-nova') return formAval(null);
+  if (ev.target.id === 'cp-ok') return comparar($('cp-a').value, $('cp-b').value);
+  const b = ev.target.closest('[data-av]'); if (!b) return; const a = AV.lista.find(x => x.id === b.dataset.id); if (!a) return;
+  if (b.dataset.av === 'ed') formAval(a); else if (b.dataset.av === 'rel') relatorio(a);
+  else if (b.dataset.av === 'rm') {
+    if (!confirm('Excluir esta avaliação e as fotos dela? Não dá para desfazer.')) return;
+    try { for (const k of Object.keys(a.fotos || {})) { try { await SS.deleteObject(SS.ref(storage, a.fotos[k])); } catch {} }
+      await FS.deleteDoc(FS.doc(db, ...apath(AV.uid, 'assessments', a.id))); AV.lista = AV.lista.filter(x => x.id !== a.id); listaAval(); } catch (e) { alert(erro(e)); }
+  }
+};
+function linhaCmp(rot, x, y, un, menorMelhor) {
+  const d = x != null && y != null ? y - x : null, cl = d == null || Math.abs(d) < 0.05 ? '' : ((d < 0) === !!menorMelhor ? 'down' : 'up');
+  return `<tr><td>${rot}</td><td>${f1(x)}</td><td>${f1(y)}</td><td class="${cl}">${d == null ? '—' : (d > 0 ? '+' : '') + f1(d) + ' ' + un}</td></tr>`;
+}
+async function urlFoto(path) { try { return await SS.getDownloadURL(SS.ref(storage, path)); } catch { return ''; } }
+async function comparar(ia, ib) {
+  const A1 = AV.lista.find(x => x.id === ia), B1 = AV.lista.find(x => x.id === ib); if (!A1 || !B1) return;
+  const c1 = calcular(A1), c2 = calcular(B1), m1 = A1.medidas || {}, m2 = B1.medidas || {};
+  let h = `<table class="t"><tr><th></th><th>${brData(A1.data)}</th><th>${brData(B1.data)}</th><th>Diferença</th></tr>
+    ${linhaCmp('Peso (kg)', num(A1.peso), num(B1.peso), 'kg', true)}${linhaCmp('IMC', c1.imc, c2.imc, '', true)}${linhaCmp('Gordura (%)', c1.gordura, c2.gordura, '%', true)}
+    ${linhaCmp('Massa magra (kg)', c1.massaMagra, c2.massaMagra, 'kg', false)}${linhaCmp('Massa gorda (kg)', c1.massaGorda, c2.massaGorda, 'kg', true)}
+    ${MEDIDAS.filter(([k]) => num(m1[k]) != null || num(m2[k]) != null).map(([k, n]) => linhaCmp(n + ' (cm)', num(m1[k]), num(m2[k]), 'cm', k === 'cintura' || k === 'abdomen' || k === 'quadril')).join('')}</table>
+    <p class="muted">Verde = melhora provável, vermelho = piora provável (para cintura, abdômen, quadril, peso e gordura, menor é melhor; para massa magra e demais medidas, aumentar costuma ser positivo).</p>`;
+  const fs = [];
+  for (const [k, n] of FOTOS) { if ((A1.fotos || {})[k] || (B1.fotos || {})[k]) fs.push(`<div><b>${n}</b><div class="g2"><img src="${esc(A1.fotos && A1.fotos[k] ? await urlFoto(A1.fotos[k]) : '')}" alt="" style="width:100%;border-radius:8px"><img src="${esc(B1.fotos && B1.fotos[k] ? await urlFoto(B1.fotos[k]) : '')}" alt="" style="width:100%;border-radius:8px"></div></div>`); }
+  $('cp-out').innerHTML = h + (fs.length ? '<h3>Fotos (antes e depois)</h3>' + fs.join('') : '');
+}
+
+/* formulário */
+function reduzir(file, max, q) {
+  return createImageBitmap(file).then(bmp => { const r = Math.min(1, max / Math.max(bmp.width, bmp.height)); const c = document.createElement('canvas'); c.width = Math.round(bmp.width * r); c.height = Math.round(bmp.height * r);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return new Promise(res => c.toBlob(res, 'image/jpeg', q)); });
+}
+function camposDobras(prot, sexo) {
+  if (prot === 'manual') return '';
+  const sites = prot === 'p7' ? SITES.p7 : (sexo === 'F' ? SITES.p3f : SITES.p3m);
+  return sites.map(k => `<div><label>${SITE_NOME[k]} (mm)</label><input data-d="${k}" inputmode="decimal"></div>`).join('');
+}
+function formAval(a) {
+  AV.edit = a; AV.novas = {}; AV.rem = {}; const st = alunoDe(AV.uid), x = a || {}, md = x.medidas || {};
+  const sexo = x.sexo || st.sexo || 'M', prot = x.protocolo || 'p3', nasc = x.nascimento || st.nascimento || '';
+  $('av-lista').classList.add('hide'); $('av-form').classList.remove('hide');
+  $('av-form').innerHTML = `<div class="card"><h2>${a ? 'Editar' : 'Nova'} avaliação</h2>
+    <div class="g2"><div><label>Data</label><input type="date" id="f-data" value="${esc(x.data || hojeISO())}"></div><div><label>Sexo</label><select id="f-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></div></div>
+    <div class="g3"><div><label>Nascimento</label><input type="date" id="f-nasc" value="${esc(nasc)}"></div><div><label>Peso (kg)</label><input id="f-peso" inputmode="decimal" value="${esc(x.peso || '')}"></div><div><label>Altura (cm)</label><input id="f-alt" inputmode="decimal" value="${esc(x.altura || '')}"></div></div>
+    <h3>Medidas (cm)</h3><div class="g2">${MEDIDAS.map(([k, n]) => `<div><label>${n}</label><input data-m="${k}" inputmode="decimal" value="${esc(md[k] || '')}"></div>`).join('')}</div>
+    <h3>Gordura corporal</h3><label>Protocolo</label><select id="f-prot"><option value="p3">Pollock 3 dobras</option><option value="p7">Pollock 7 dobras</option><option value="manual">Informar o % manualmente</option></select>
+    <div class="g2" id="f-dobras">${camposDobras(prot, sexo)}</div><div id="f-manual" class="hide"><label>% de gordura</label><input id="f-gman" inputmode="decimal" value="${esc(x.gorduraManual || '')}"></div>
+    <div class="kpi" style="margin-top:12px" id="f-calc"></div>
+    <h3>Fotos</h3><div class="g3">${FOTOS.map(([k, n]) => `<div><label>${n}</label><input type="file" accept="image/*" data-foto="${k}"><img class="hide" id="pv-${k}" alt="" style="width:100%;border-radius:8px;margin-top:6px"></div>`).join('')}</div>
+    <p class="muted">As fotos são dados sensíveis: só você, a equipe da academia e o próprio aluno conseguem ver.</p>
+    <label>Observações</label><textarea id="f-obs" rows="3" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)">${esc(x.obs || '')}</textarea>
+    <div class="sticky"><button id="f-ok">Salvar avaliação</button><button class="sec" id="f-cancel">Cancelar</button><span id="f-av-msg" class="err" style="align-self:center"></span></div></div>`;
+  $('f-sexo').value = sexo; $('f-prot').value = prot; if (x.dobras) document.querySelectorAll('#f-dobras [data-d]').forEach(i => { i.value = x.dobras[i.dataset.d] || ''; });
+  if (x.fotos) FOTOS.forEach(async ([k]) => { if (x.fotos[k]) { const u = await urlFoto(x.fotos[k]); if (u) { $('pv-' + k).src = u; $('pv-' + k).classList.remove('hide'); } } });
+  ajustaForm();
+}
+function lerAv() {
+  const o = { data: $('f-data').value, sexo: $('f-sexo').value, nascimento: $('f-nasc').value, peso: $('f-peso').value.trim(), altura: $('f-alt').value.trim(), protocolo: $('f-prot').value, gorduraManual: $('f-gman').value.trim(), obs: $('f-obs').value.trim().slice(0, 1000), medidas: {}, dobras: {} };
+  document.querySelectorAll('#av-form [data-m]').forEach(i => { if (i.value.trim()) o.medidas[i.dataset.m] = i.value.trim(); });
+  document.querySelectorAll('#f-dobras [data-d]').forEach(i => { if (i.value.trim()) o.dobras[i.dataset.d] = i.value.trim(); });
+  return o;
+}
+function ajustaForm() {
+  const o = lerAv(); $('f-manual').classList.toggle('hide', o.protocolo !== 'manual');
+  const c = calcular(o);
+  $('f-calc').innerHTML = `<div>IMC<b>${f1(c.imc)}</b><span class="muted">${esc(classeIMC(c.imc))}</span></div><div>% gordura<b>${f1(c.gordura)}</b></div><div>Massa magra<b>${f1(c.massaMagra)}</b><span class="muted">kg</span></div><div>Massa gorda<b>${f1(c.massaGorda)}</b><span class="muted">kg</span></div>` + (c.rcq ? `<div>Cintura/quadril<b>${f1(c.rcq, 2)}</b></div>` : '');
+}
+$('av-form').oninput = ev => { if (ev.target.id === 'f-prot' || ev.target.id === 'f-sexo') { const o = lerAv(); const keep = o.dobras; $('f-dobras').innerHTML = camposDobras(o.protocolo, o.sexo); document.querySelectorAll('#f-dobras [data-d]').forEach(i => { i.value = keep[i.dataset.d] || ''; }); } ajustaForm(); };
+$('av-form').onchange = async ev => {
+  const k = ev.target.dataset.foto; if (!k) return; const f = ev.target.files[0]; if (!f) return;
+  try { AV.novas[k] = await reduzir(f, 1280, 0.82); const im = $('pv-' + k); im.src = URL.createObjectURL(AV.novas[k]); im.classList.remove('hide'); } catch { $('f-av-msg').textContent = 'Não consegui ler essa foto.'; }
+};
+$('av-form').onclick = async ev => {
+  if (ev.target.id === 'f-cancel') { $('av-form').classList.add('hide'); $('av-lista').classList.remove('hide'); return; }
+  if (ev.target.id !== 'f-ok') return;
+  const o = lerAv(), msg = $('f-av-msg'); msg.textContent = '';
+  if (!o.data) { msg.textContent = 'Informe a data.'; return; }
+  if (!num(o.peso)) { msg.textContent = 'Informe o peso.'; return; }
+  if (o.protocolo !== 'manual' && !o.nascimento) { msg.textContent = 'Informe o nascimento para calcular a gordura (ou use o % manual).'; return; }
+  $('f-ok').disabled = true; msg.className = 'ok'; msg.textContent = 'Salvando…';
+  try {
+    const ref = AV.edit ? FS.doc(db, ...apath(AV.uid, 'assessments', AV.edit.id)) : FS.doc(FS.collection(db, ...apath(AV.uid, 'assessments')));
+    const fotos = { ...((AV.edit && AV.edit.fotos) || {}) };
+    for (const k of Object.keys(AV.novas)) { const path = `gyms/${gymId}/students/${AV.uid}/assessments/${ref.id}/${k}.jpg`; await SS.uploadBytes(SS.ref(storage, path), AV.novas[k], { contentType: 'image/jpeg' }); fotos[k] = path; }
+    const c = calcular(o);
+    const doc = { ...o, fotos, imc: c.imc == null ? null : +c.imc.toFixed(2), gordura: c.gordura == null ? null : +c.gordura.toFixed(2), massaMagra: c.massaMagra == null ? null : +c.massaMagra.toFixed(2), massaGorda: c.massaGorda == null ? null : +c.massaGorda.toFixed(2),
+      criadoEm: (AV.edit && AV.edit.criadoEm) || new Date().toISOString(), criadoPor: (AV.edit && AV.edit.criadoPor) || me.uid, atualizadoEm: new Date().toISOString() };
+    await FS.setDoc(ref, doc);
+    try { await FS.updateDoc(FS.doc(db, ...apath(AV.uid)), { sexo: o.sexo, nascimento: o.nascimento }); const st = alunoDe(AV.uid); st.sexo = o.sexo; st.nascimento = o.nascimento; } catch {}
+    const nova = { id: ref.id, ...doc }; AV.lista = AV.lista.filter(x => x.id !== ref.id).concat([nova]).sort((x, y) => String(x.data).localeCompare(String(y.data)));
+    $('av-form').classList.add('hide'); $('av-lista').classList.remove('hide'); listaAval();
+  } catch (e) { msg.className = 'err'; msg.textContent = erro(e); $('f-ok').disabled = false; }
+};
+
+/* relatório para imprimir / PDF */
+async function relatorio(a) {
+  aba('rel'); const c = calcular(a), m = a.medidas || {}, L = AV.lista, i = L.findIndex(x => x.id === a.id), ant = i > 0 ? L[i - 1] : null, ca = ant ? calcular(ant) : null;
+  const dif = (n, p, un) => n != null && p != null ? ` <span class="muted">(${n - p > 0 ? '+' : ''}${f1(n - p)} ${un} desde ${brData(ant.data)})</span>` : '';
+  const fs = []; for (const [k, n] of FOTOS) if ((a.fotos || {})[k]) fs.push(`<div><img src="${esc(await urlFoto(a.fotos[k]))}" alt="Foto ${n}"><div class="muted" style="text-align:center">${n}</div></div>`);
+  const idade = idadeEm(a.nascimento, a.data);
+  $('rl-corpo').innerHTML = `<div class="row" style="justify-content:space-between"><div><h1 style="margin:0">Avaliação física</h1><div class="muted">${esc(gym.nome)}</div></div>${gym.logoUrl ? `<img src="${esc(gym.logoUrl)}" alt="" style="height:56px">` : ''}</div>
+    <p><b>${esc(AV.nome)}</b> · ${brData(a.data)}${idade != null ? ' · ' + idade + ' anos' : ''} · ${a.sexo === 'F' ? 'Feminino' : 'Masculino'}</p>
+    <div class="kpi"><div>Peso<b>${f1(num(a.peso))}</b>kg${dif(num(a.peso), ant && num(ant.peso), 'kg')}</div><div>Altura<b>${f1(num(a.altura), 0)}</b>cm</div><div>IMC<b>${f1(c.imc)}</b>${esc(classeIMC(c.imc))}</div>
+      <div>% gordura<b>${f1(c.gordura)}</b>${dif(c.gordura, ca && ca.gordura, '%')}</div><div>Massa magra<b>${f1(c.massaMagra)}</b>kg</div><div>Massa gorda<b>${f1(c.massaGorda)}</b>kg</div></div>
+    <h3>Medidas</h3><table class="t">${MEDIDAS.filter(([k]) => m[k]).map(([k, n]) => `<tr><td>${n}</td><td>${f1(num(m[k]))} cm${ant && ant.medidas && ant.medidas[k] ? ` <span class="muted">(antes ${f1(num(ant.medidas[k]))})</span>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Sem medidas.</td></tr>'}</table>
+    ${a.protocolo !== 'manual' ? `<h3>Dobras cutâneas (${a.protocolo === 'p7' ? 'Pollock 7' : 'Pollock 3'})</h3><table class="t">${Object.entries(a.dobras || {}).map(([k, v]) => `<tr><td>${esc(SITE_NOME[k] || k)}</td><td>${f1(num(v))} mm</td></tr>`).join('')}</table>` : ''}
+    <h3>Evolução</h3>${grafico(L.slice(0, i + 1).map(x => ({ l: brData(x.data).slice(0, 5), v: num(x.peso) })), 'kg')}${grafico(L.slice(0, i + 1).map(x => ({ l: brData(x.data).slice(0, 5), v: calcular(x).gordura })), '%')}
+    ${fs.length ? `<h3>Fotos</h3><div class="fotos">${fs.join('')}</div>` : ''}${a.obs ? `<h3>Observações do professor</h3><p>${esc(a.obs)}</p>` : ''}
+    <p class="muted" style="margin-top:24px">Estimativas de composição corporal (Jackson &amp; Pollock + Siri) não substituem avaliação médica.</p>`;
+}
+$('rl-voltar').onclick = () => aba('aval'); $('rl-imprimir').onclick = () => window.print();
+
+/* ---------- evolução do aluno ---------- */
+async function abrirEvo(uid) {
+  const a = alunoDe(uid); $('ev-titulo').textContent = 'Evolução de ' + (a.nome || 'aluno'); document.querySelector('.tabs').classList.add('hide'); aba('evo'); $('ev-corpo').innerHTML = '<p class="muted">Carregando…</p>';
+  try {
+    const sn = await FS.getDocs(FS.collection(db, ...apath(uid, 'workouts')));
+    const W = sn.docs.map(d => d.data()).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+    const seg = d => { const t = new Date(d); t.setHours(0, 0, 0, 0); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.getTime(); };
+    const semanas = []; const s0 = seg(Date.now()); for (let i = 7; i >= 0; i--) semanas.push(s0 - i * 7 * 864e5);
+    const cont = semanas.map(t => W.filter(w => seg(w.date) === t).length), mx = Math.max(1, ...cont);
+    const ult30 = W.filter(w => Date.now() - new Date(w.date).getTime() < 30 * 864e5).length;
+    const ex = {}; W.slice().reverse().forEach(w => (w.gym || []).forEach(e => { const kg = num(e.kg); if (kg != null) (ex[e.n] = ex[e.n] || []).push({ l: brData(w.date.slice(0, 10)).slice(0, 5), v: kg }); }));
+    const nomes = Object.keys(ex).sort();
+    $('ev-corpo').innerHTML = `<div class="card"><div class="kpi"><div>Treinos (30 dias)<b>${ult30}</b></div><div>Treinos no total<b>${W.length}</b></div><div>Último treino<b style="font-size:1.1rem">${W[0] ? brData(W[0].date.slice(0, 10)) : '—'}</b></div></div>
+      <h3>Treinos por semana (8 semanas)</h3><div class="bar">${cont.map((n, i) => `<div style="height:${Math.max(3, n / mx * 100)}%" title="${new Date(semanas[i]).toLocaleDateString('pt-BR')}"><span>${n}</span></div>`).join('')}</div></div>
+      <div class="card"><h2>Carga por exercício</h2>${nomes.length ? `<select id="ev-ex">${nomes.map(n => `<option>${esc(n)}</option>`).join('')}</select><div id="ev-gr">${grafico(ex[nomes[0]], 'kg')}</div>` : '<p class="muted">Ainda não há cargas registradas.</p>'}</div>
+      <div class="card"><h2>Últimos treinos</h2>${W.slice(0, 20).map(w => `<details><summary>${brData(w.date.slice(0, 10))} · ${esc(w.plan || w.act)} · ${Math.round((w.ms || 0) / 60000)} min</summary>${(w.gym || []).map(e => `<div>${esc(e.n)}: ${esc(e.sets)}x${esc(e.r)}${e.kg ? ' · ' + esc(e.kg) + ' kg' : ''}</div>`).join('') || '<div class="muted">Sem detalhes.</div>'}</details>`).join('') || '<p class="muted">Nenhum treino registrado ainda. Os treinos aparecem aqui depois que o aluno entrar na academia e sincronizar o app.</p>'}</div>
+      ${gym.role === 'owner' ? `<div class="card"><h2>Dados do aluno (LGPD)</h2><p class="muted">Apaga ficha, avaliações, fotos, treinos e o vínculo deste aluno com a academia. Não dá para desfazer.</p><button class="danger" id="ev-apagar">Apagar dados do aluno</button><div class="err" id="ev-err"></div></div>` : ''}`;
+    if (nomes.length) $('ev-ex').onchange = () => { $('ev-gr').innerHTML = grafico(ex[$('ev-ex').value], 'kg'); };
+    if ($('ev-apagar')) $('ev-apagar').onclick = () => apagarAluno(uid);
+  } catch (e) { $('ev-corpo').innerHTML = '<div class="err">' + esc(erro(e)) + '</div>'; }
+}
+$('ev-voltar').onclick = () => { document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); };
+async function apagarAluno(uid) {
+  const a = alunoDe(uid); if (!confirm(`Apagar TODOS os dados de ${a.nome || 'este aluno'} (ficha, avaliações, fotos e treinos)?`)) return; if (!confirm('Tem certeza? Isso não pode ser desfeito.')) return;
+  try {
+    const av = await FS.getDocs(FS.collection(db, ...apath(uid, 'assessments')));
+    for (const d of av.docs) { for (const k of Object.values(d.data().fotos || {})) { try { await SS.deleteObject(SS.ref(storage, k)); } catch {} } await FS.deleteDoc(d.ref); }
+    for (const sub of ['plans', 'workouts']) { const sn = await FS.getDocs(FS.collection(db, ...apath(uid, sub))); for (const d of sn.docs) await FS.deleteDoc(d.ref); }
+    await FS.deleteDoc(FS.doc(db, ...apath(uid))); await FS.deleteDoc(FS.doc(db, 'gyms', gymId, 'members', uid));
+    alunos = alunos.filter(x => x.uid !== uid); document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); desenharAlunos();
+  } catch (e) { $('ev-err').textContent = erro(e); }
+}
+
 /* ---------- início ---------- */
 async function iniciar() {
   show('v-load');
   try {
     const g = await carregarAcademia();
-    if (!g) { show('v-setup'); return; }
-    $('t-marca').classList.toggle('hide', g.role !== 'owner'); aplicarMarca(); $('m-user').textContent = me.displayName || me.email || '';
+    if (!g) { $('s-aluno').classList.toggle('hide', !souAluno); ['s-prof'].forEach(i => $(i).classList.toggle('hide', souAluno)); document.querySelector('#v-setup > .card:first-of-type').classList.toggle('hide', souAluno); show('v-setup'); return; }
+    $('t-marca').classList.toggle('hide', g.role !== 'owner'); $('t-equipe').classList.toggle('hide', g.role !== 'owner'); aplicarMarca(); $('m-user').textContent = me.displayName || me.email || '';
     document.title = g.nome + ' — painel';
     mostrarCodigo(); aba('alunos'); show('v-main'); carregarAlunos();
   } catch (e) {

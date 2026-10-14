@@ -567,6 +567,7 @@
   <button class="tab" role="tab" id="tab-prog" aria-selected="false" aria-controls="view-prog"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 20v-6.5M12 20V6M18.5 20V10.5"/></svg></span>Progresso</button>
 </div></nav>
 <dialog id="acct" aria-label="Conta"><div id="acct-body"></div></dialog>
+<dialog id="aval" aria-label="Minhas avaliações"><div id="aval-body"></div></dialog>
 
 <dialog id="adm" aria-label="Painel do administrador"><div id="adm-body"></div></dialog>
 <dialog id="intro" aria-label="Apresentação"><div id="intro-body"></div></dialog>
@@ -654,7 +655,7 @@
 
   /* ---------- preferências ---------- */
   const SNAP_KEY = 'snapshot', HIST_KEY = 'history', SET_KEY = 'settings',
-        DONE_KEY = 'done', EVO_KEY = 'evo', DEL_KEY = 'deleted', GYM_KEY = 'gym';
+        DONE_KEY = 'done', EVO_KEY = 'evo', DEL_KEY = 'deleted', GYM_KEY = 'gym', PROF_KEY = 'profplan';
   const loadPrefs = () => Object.assign({ weight: 70, act: 'run', voice: true, mode: 'all', vol: 50, theme: 'auto', zoom: 1, goal: 3, pace: 0, accent: '', warm: false, stretch: false, rgoal: '', autop: false, remind: { days: [1, 3, 5], time: '18:00' } }, store.get(SET_KEY, {}));
   let prefs = loadPrefs();
   function savePrefs() { prefs.t = Date.now(); store.set(SET_KEY, prefs); changed(); }
@@ -1297,7 +1298,7 @@
   /* ---------- academia (treinos A, B, C e D) ---------- */
   const GYM_LET = ['A', 'B', 'C', 'D'];
   const GYM_EXTRA = 'EFGHIJKL'.split('');
-  const gymLetters = g => [...GYM_LET, ...Object.keys(g).filter(k => GYM_EXTRA.includes(k) && g[k] && !g[k].del).sort()];
+  const gymLetters = g => profMode() ? Object.keys(g).sort() : [...GYM_LET, ...Object.keys(g).filter(k => GYM_EXTRA.includes(k) && g[k] && !g[k].del).sort()];
   const gx = (id, n, s, r) => ({ id, n, s, r: String(r), kg: '' });
   function gymDefault() {
     return {
@@ -1334,12 +1335,36 @@
         gx('d7', 'Crucifixo inverso com halteres, sentado no banco inclinado', 3, 12) ] }
     };
   }
+  /* ficha montada pelo professor: substitui as fichas locais enquanto existir */
+  const gymNome = () => { try { return (Acct.gym && Acct.gym.nome) || ''; } catch { return ''; } };
+  function profMode() { const p = store.get(PROF_KEY, null); return !!(p && p.dias && p.dias.length); }
+  function profGym() {
+    const p = store.get(PROF_KEY, null), out = {};
+    p.dias.slice(0, 12).forEach((d, i) => {
+      const L = String.fromCharCode(65 + i), seen = new Set();
+      out[L] = { t: 0, rest: d.descanso == null ? 60 : d.descanso, title: d.nome || '', ex: (d.ex || []).map((e, j) => {
+        let id = e.id && !seen.has(e.id) ? e.id : L.toLowerCase() + 'p' + j; seen.add(id);
+        return { id, n: e.n, s: e.s || 3, r: String(e.r || ''), kg: e.kg || '', obs: e.obs || '' }; }) };
+    });
+    return out;
+  }
+  let profAt = 0;
+  function loadProf(force) {
+    const C = window.TreinoCloud; if (!C || !C.getPlan || !Acct.gym || Acct.gym.role !== 'student') return;
+    if (!force && Date.now() - profAt < 60000) return; profAt = Date.now();
+    C.getPlan().then(p => setProfPlan(p)).catch(() => {});
+  }
+  function setProfPlan(p) {
+    if (p && p.dias && p.dias.length) store.set(PROF_KEY, p); else store.del(PROF_KEY);
+    if (typeof renderPlans === 'function') renderPlans();
+  }
   function gymGet() {
+    if (profMode()) return profGym();
     const g = store.get(GYM_KEY, null) || {}, d = gymDefault();
     GYM_LET.forEach(L => { if (!g[L]) g[L] = d[L]; });
     return g;
   }
-  function gymSave(g, L) { g[L].t = Date.now(); store.set(GYM_KEY, g); changed(); }
+  function gymSave(g, L) { if (profMode()) return; g[L].t = Date.now(); store.set(GYM_KEY, g); changed(); }
   const repsTxt = r => /^\d/.test(String(r)) ? `${r} repetições` : String(r);
   const clampInt = (v, lo, hi, d) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); return isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
   function lastGym(name) {
@@ -1563,24 +1588,26 @@
     const g = gymGet(), done = store.get(DONE_KEY, {});
     let h = planTabs('gym');
     if (UI.gymEdit) { $('#view-plans').innerHTML = h + renderGymEditor(g, UI.gymEdit); return; }
-    h += '<h2 class="wk-title">Treinos da academia</h2><p class="wk-sub">Toque em Editar para mudar exercícios, séries, repetições, cargas e descanso.</p>';
+    const PM = profMode(), pp = PM ? store.get(PROF_KEY, {}) : null;
+    h += PM ? `<h2 class="wk-title">${esc(pp.nome || 'Ficha do professor')}</h2><p class="wk-sub">Ficha montada pelo seu professor${gymNome() ? ' na ' + esc(gymNome()) : ''}. Ela atualiza sozinha quando ele mudar.</p>`
+      : '<h2 class="wk-title">Treinos da academia</h2><p class="wk-sub">Toque em Editar para mudar exercícios, séries, repetições, cargas e descanso.</p>';
     gymLetters(g).forEach(L => {
       const w = g[L], iso = done[`gym-${L}`];
-      const list = w.ex.map(e => `<li><b>${esc(e.n)}</b>, ${e.s}x${esc(e.r)}${e.kg ? ', ' + esc(e.kg) + ' kg' : ''}</li>`).join('')
+      const list = w.ex.map(e => `<li><b>${esc(e.n)}</b>, ${e.s}x${esc(e.r)}${e.kg ? ', ' + esc(e.kg) + ' kg' : ''}${e.obs ? '<br><span class="muted">' + esc(e.obs) + '</span>' : ''}</li>`).join('')
         || '<li>Ainda sem exercícios. Toque em Editar para adicionar.</li>';
       h += `<article class="sess">
-        <div class="sess-head"><h3>Treino ${L}</h3><span class="dur">${w.ex.length} exerc.</span></div>
+        <div class="sess-head"><h3>Treino ${L}${PM && w.title && w.title !== L ? ' · ' + esc(w.title) : ''}</h3><span class="dur">${w.ex.length} exerc.</span></div>
         ${iso ? `<span class="badge">Último treino: ${esc(new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', ''))}</span>` : ''}
         <ul class="sess-list">${list}</ul>
         <div class="btn-row"><button class="btn small" data-a="gym-start" data-l="${L}"${w.ex.length ? '' : ' disabled'}>Iniciar treino</button>
-        <button class="btn small secondary" data-a="gym-edit" data-l="${L}">Editar</button></div>
-        <button class="linkbtn" data-a="gym-dup" data-l="${L}" style="padding-left:0">Duplicar este treino</button></article>`;
+        ${PM ? '' : `<button class="btn small secondary" data-a="gym-edit" data-l="${L}">Editar</button>`}</div>
+        ${PM ? '' : `<button class="linkbtn" data-a="gym-dup" data-l="${L}" style="padding-left:0">Duplicar este treino</button>`}</article>`;
     });
-    h += `<button class="btn small secondary" style="margin-top:12px" data-a="gym-new">Criar novo treino</button>
+    h += `${PM ? '' : '<button class="btn small secondary" style="margin-top:12px" data-a="gym-new">Criar novo treino</button>'}
       <article class="sess"><h3 style="margin-bottom:8px">Antes e depois dos exercícios</h3>
       <label class="check" style="margin-top:0"><input type="checkbox" data-pf="warm"${prefs.warm ? ' checked' : ''}> Aquecimento guiado (2 min)</label>
       <label class="check"><input type="checkbox" data-pf="stretch"${prefs.stretch ? ' checked' : ''}> Alongamento guiado (2 min 30 s)</label></article>`;
-    h += '<p class="hint">Descanso padrão de 60 s entre as séries. Você muda em Editar.</p>';
+    h += PM ? '<p class="hint">Quer mudar algo na ficha? Fale com seu professor.</p>' : '<p class="hint">Descanso padrão de 60 s entre as séries. Você muda em Editar.</p>';
     $('#view-plans').innerHTML = h;
   }
 
@@ -2466,7 +2493,7 @@
     Acct.user = u ? { uid: u.uid, name: u.name || '', email: u.email || '' } : null;
     try { u ? localStorage.setItem('treino.lastUser', JSON.stringify(Acct.user)) : localStorage.removeItem('treino.lastUser'); } catch {}
     Acct.admin = false; Acct.gym = undefined; if (!u) setBrand(null);
-    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
+    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); loadProf(); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
     if (u && window.TreinoCloud && window.TreinoCloud.isAdmin) window.TreinoCloud.isAdmin().then(v => { Acct.admin = v; if ($('#acct').open) renderAcct(); });
     if (u) setTimeout(maybeIntro, 1200);
     if (next !== ns) {
@@ -2626,7 +2653,7 @@
   function gymCard() {
     const g = Acct.gym;
     if (g === undefined) return '<div class="fld"><label>Minha academia</label><p class="hint" style="margin:0">Verificando…</p></div>';
-    if (g && g.role === 'student') return `<div class="fld"><label>Minha academia</label><p style="margin:0"><b>${esc(g.nome || 'Academia')}</b></p><p class="hint" style="margin:4px 0 0">Você está vinculado a esta academia. Seu professor monta a sua ficha.</p></div>`;
+    if (g && g.role === 'student') return `<div class="fld"><label>Minha academia</label><p style="margin:0"><b>${esc(g.nome || 'Academia')}</b></p><p class="hint" style="margin:4px 0 0">Você está vinculado a esta academia. Seu professor monta a sua ficha.</p><button class="btn small secondary" data-a="myaval" style="margin-top:10px">Minhas avaliações físicas</button></div>`;
     if (g) return `<div class="fld"><label>Academia</label><p style="margin:0"><b>${esc(g.nome || 'Academia')}</b></p><p class="hint" style="margin:4px 0 0">Você é da equipe. Gerencie alunos e fichas no <a href="painel.html">painel do professor</a>.</p></div>`;
     return `<div class="fld"><label for="gym-code">Entrar em uma academia</label>
       <input id="gym-code" autocomplete="off" autocapitalize="characters" maxlength="9" placeholder="Código (ex.: ABCD-2345)">
@@ -2635,6 +2662,35 @@
       <p class="hint" id="gym-msg" role="status" style="margin:8px 0 0"></p></div>`;
   }
   const GYM_ERR = { 'treino/convite-invalido': 'Código inválido ou desativado. Confira com seu professor.', 'treino/ja-na-academia': 'Você já está em uma academia.', 'permission-denied': 'Não foi possível entrar com esse código.' };
+
+  /* avaliações físicas feitas pelo professor (somente leitura) */
+  const f1 = (n, d = 1) => (n == null || !isFinite(n)) ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const nn = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : null; };
+  const brD = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
+  const MED = [['braco', 'Braço'], ['antebraco', 'Antebraço'], ['peito', 'Peito'], ['cintura', 'Cintura'], ['abdomen', 'Abdômen'], ['quadril', 'Quadril'], ['coxa', 'Coxa'], ['panturrilha', 'Panturrilha']];
+  const clsIMC = i => i == null ? '' : i < 18.5 ? 'Abaixo do peso' : i < 25 ? 'Peso normal' : i < 30 ? 'Sobrepeso' : i < 35 ? 'Obesidade grau I' : i < 40 ? 'Obesidade grau II' : 'Obesidade grau III';
+  async function openMyAval() {
+    const box = $('#aval-body'); box.innerHTML = '<h2>Minhas avaliações</h2><p class="hint">Carregando…</p>'; $('#aval').showModal();
+    let L = [];
+    try { L = await window.TreinoCloud.getAssessments(); } catch { box.innerHTML = '<h2>Minhas avaliações</h2><p class="hint">Não foi possível carregar agora. Verifique a internet.</p><button class="btn small secondary" data-a="close">Fechar</button>'; return; }
+    const d = L.slice().reverse();
+    box.innerHTML = '<h2>Minhas avaliações</h2>' + (d.length ? d.map((a, i) => {
+      const p = d[i + 1], dl = (x, y, un) => (x != null && y != null) ? ` <span class="hint">(${x - y > 0 ? '+' : ''}${f1(x - y)} ${un})</span>` : '', m = a.medidas || {};
+      return `<article class="sess"><div class="sess-head"><h3>${esc(brD(a.data))}</h3></div>
+        <p style="margin:6px 0">Peso <b>${f1(nn(a.peso))} kg</b>${dl(nn(a.peso), p && nn(p.peso), 'kg')}<br>IMC <b>${f1(a.imc)}</b> ${esc(clsIMC(a.imc))}<br>Gordura <b>${f1(a.gordura)}%</b>${dl(a.gordura, p && p.gordura, '%')}<br>Massa magra <b>${f1(a.massaMagra)} kg</b> · Massa gorda <b>${f1(a.massaGorda)} kg</b></p>
+        ${MED.some(([k]) => m[k]) ? '<p class="hint" style="margin:6px 0">' + MED.filter(([k]) => m[k]).map(([k, n]) => `${n}: ${esc(m[k])} cm${p && p.medidas && p.medidas[k] ? ' (antes ' + esc(p.medidas[k]) + ')' : ''}`).join(' · ') + '</p>' : ''}
+        ${a.obs ? `<p class="hint" style="margin:6px 0">Observação do professor: ${esc(a.obs)}</p>` : ''}
+        ${a.fotos && Object.keys(a.fotos).length ? `<button class="btn small secondary" data-ph="${esc(a.id)}">Ver minhas fotos</button><div class="ph" id="ph-${esc(a.id)}" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px"></div>` : ''}</article>`;
+    }).join('') : '<p class="hint">Seu professor ainda não registrou nenhuma avaliação.</p>') + '<button class="btn small secondary" data-a="close">Fechar</button>';
+    box._L = L;
+  }
+  $('#aval').addEventListener('click', async e => {
+    const b = e.target.closest('[data-a],[data-ph]'); if (!b) return;
+    if (b.dataset.a === 'close') { $('#aval').close(); return; }
+    const a = ($('#aval-body')._L || []).find(x => x.id === b.dataset.ph); if (!a) return;
+    b.disabled = true; const out = $('#ph-' + a.id); out.innerHTML = '';
+    for (const path of Object.values(a.fotos || {})) { try { const u = await window.TreinoCloud.fotoUrl(path); const im = document.createElement('img'); im.src = u; im.alt = 'Foto da avaliação'; im.style.cssText = 'width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px'; out.appendChild(im); } catch {} }
+  });
 
   /* janela da conta (só para quem já entrou) */
   function renderAcct() {
@@ -2662,12 +2718,13 @@
     const a = b.dataset.a, C = window.TreinoCloud;
     if (a === 'close') $('#acct').close();
     else if (a === 'sync') { C && C.sync(); }
+    else if (a === 'myaval') { $('#acct').close(); openMyAval(); }
     else if (a === 'joingym') {
       const msg = $('#gym-msg'), code = $('#gym-code').value;
       if (!$('#gym-ok').checked) { msg.textContent = 'Marque a autorização para continuar.'; return; }
       if (!C || !C.joinGym) { msg.textContent = 'Sem conexão com o servidor.'; return; }
       b.disabled = true; msg.textContent = 'Entrando…';
-      try { Acct.gym = await C.joinGym(code); setBrand(Acct.gym && Acct.gym.role === 'student' ? Acct.gym : null); renderAcct(); }
+      try { Acct.gym = await C.joinGym(code); setBrand(Acct.gym && Acct.gym.role === 'student' ? Acct.gym : null); loadProf(true); renderAcct(); }
       catch (er) { b.disabled = false; msg.textContent = GYM_ERR[er && er.code] || 'Não foi possível entrar agora. Tente de novo.'; }
     }
     else if (a === 'admin') { $('#acct').close(); openAdmin(); }
@@ -2695,7 +2752,7 @@
     }
   });
   window.addEventListener('treino:sync', e => {
-    Acct.sync = e.detail.state;
+    Acct.sync = e.detail.state; if (e.detail.state === 'ok') loadProf();
     const el = $('#acct-status');
     if (el) el.textContent = SYNC_TXT[Acct.sync] || '';
   });

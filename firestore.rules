@@ -7,11 +7,11 @@ service cloud.firestore {
     function ehEquipe(g) { return logado() && membro(g) && papel(g) in ['owner', 'coach']; }
     function ehDono(g) { return logado() && membro(g) && papel(g) == 'owner'; }
     function ehProprio(uid) { return logado() && request.auth.uid == uid; }
-    function conviteOk(g, c) { return get(/databases/$(database)/documents/invites/$(c)).data.gymId == g && get(/databases/$(database)/documents/invites/$(c)).data.ativo == true; }
+    function conviteOk(g, c, r) { return get(/databases/$(database)/documents/invites/$(c)).data.gymId == g && get(/databases/$(database)/documents/invites/$(c)).data.ativo == true && get(/databases/$(database)/documents/invites/$(c)).data.get('papel', 'student') == r; }
     match /users/{uid}/{document=**} { allow read, write: if ehProprio(uid); }
     match /invites/{code} {
       allow get: if logado();
-      allow create: if logado() && ehEquipe(request.resource.data.gymId);
+      allow create: if logado() && ehEquipe(request.resource.data.gymId) && (request.resource.data.get('papel', 'student') == 'student' || ehDono(request.resource.data.gymId));
       allow update, delete: if logado() && ehEquipe(resource.data.gymId);
     }
     match /gyms/{gymId} {
@@ -21,7 +21,7 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if ehProprio(uid) || ehEquipe(gymId);
         allow create: if (ehProprio(uid) && request.resource.data.role == 'owner' && get(/databases/$(database)/documents/gyms/$(gymId)).data.ownerUid == request.auth.uid)
-          || (ehProprio(uid) && request.resource.data.role == 'student' && conviteOk(gymId, request.resource.data.inviteCode))
+          || (ehProprio(uid) && request.resource.data.role in ['student', 'coach'] && conviteOk(gymId, request.resource.data.inviteCode, request.resource.data.role))
           || (ehDono(gymId) && request.resource.data.role in ['coach', 'student']);
         allow update: if ehDono(gymId) && uid != request.auth.uid;
         allow delete: if ehDono(gymId) || ehProprio(uid);
