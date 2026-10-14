@@ -206,6 +206,7 @@
   </div>
 </div>
 
+<script src="corpo.js"></script>
 <script type="module">
 import { firebaseConfig } from './firebase-config.js';
 const V = '10.12.5', CDN = `https://www.gstatic.com/firebasejs/${V}/`;
@@ -602,7 +603,7 @@ const brData = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('
 const idadeEm = (nasc, ref) => { if (!nasc) return null; const a = new Date(nasc), b = new Date(ref || Date.now()); let i = b.getFullYear() - a.getFullYear(); const m = b.getMonth() - a.getMonth(); if (m < 0 || (m === 0 && b.getDate() < a.getDate())) i--; return i >= 0 && i < 120 ? i : null; };
 const SITES = { p3m: ['peitoral', 'abdominal', 'coxa'], p3f: ['triceps', 'suprailiaca', 'coxa'], p7: ['peitoral', 'axilar', 'triceps', 'subescapular', 'abdominal', 'suprailiaca', 'coxa'] };
 const SITE_NOME = { peitoral: 'Peitoral', abdominal: 'Abdominal', coxa: 'Coxa', triceps: 'Tríceps', suprailiaca: 'Supra-ilíaca', axilar: 'Axilar média', subescapular: 'Subescapular' };
-const MEDIDAS = [['braco', 'Braço'], ['antebraco', 'Antebraço'], ['peito', 'Peito'], ['cintura', 'Cintura'], ['abdomen', 'Abdômen'], ['quadril', 'Quadril'], ['coxa', 'Coxa'], ['panturrilha', 'Panturrilha']];
+const MEDIDAS = window.Corpo.MEDIDAS;
 const FOTOS = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']];
 // Jackson & Pollock (densidade corporal) + equação de Siri (% de gordura)
 function pollock(prot, sexo, idade, d) {
@@ -793,6 +794,7 @@ async function relatorio(a) {
     <p><b>${esc(AV.nome)}</b> · ${brData(a.data)}${idade != null ? ' · ' + idade + ' anos' : ''} · ${a.sexo === 'F' ? 'Feminino' : 'Masculino'}</p>
     <div class="kpi"><div>Peso<b>${f1(num(a.peso))}</b>kg${dif(num(a.peso), ant && num(ant.peso), 'kg')}</div><div>Altura<b>${f1(num(a.altura), 0)}</b>cm</div><div>IMC<b>${f1(c.imc)}</b>${esc(classeIMC(c.imc))}</div>
       <div>% gordura<b>${f1(c.gordura)}</b>${dif(c.gordura, ca && ca.gordura, '%')}</div><div>Massa magra<b>${f1(c.massaMagra)}</b>kg</div><div>Massa gorda<b>${f1(c.massaGorda)}</b>kg</div></div>
+    <h3>Medidas no corpo</h3>${Object.keys(m).some(k => m[k]) ? Corpo.svg(m, ant) : ''}${Corpo.riscosHtml(a, idade)}
     <h3>Medidas</h3><table class="t">${MEDIDAS.filter(([k]) => m[k]).map(([k, n]) => `<tr><td>${n}</td><td>${f1(num(m[k]))} cm${ant && ant.medidas && ant.medidas[k] ? ` <span class="muted">(antes ${f1(num(ant.medidas[k]))})</span>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Sem medidas.</td></tr>'}</table>
     ${a.protocolo !== 'manual' ? `<h3>Dobras cutâneas (${a.protocolo === 'p7' ? 'Pollock 7' : 'Pollock 3'})</h3><table class="t">${Object.entries(a.dobras || {}).map(([k, v]) => `<tr><td>${esc(SITE_NOME[k] || k)}</td><td>${f1(num(v))} mm</td></tr>`).join('')}</table>` : ''}
     <h3>Evolução</h3>${grafico(L.slice(0, i + 1).map(x => ({ l: brData(x.data).slice(0, 5), v: num(x.peso) })), 'kg')}${grafico(L.slice(0, i + 1).map(x => ({ l: brData(x.data).slice(0, 5), v: calcular(x).gordura })), '%')}

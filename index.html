@@ -417,6 +417,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .fill { transition: width .4s linear; }
   }
+  .muted { color: var(--muted, #667); } .pill { display:inline-block; padding:2px 10px; border-radius:99px; border:1px solid var(--line); font-size:.8rem; font-weight:600; } .pill.on { color:#2e7d32; border-color:#2e7d32; } .pill.up { color:#c62828; border-color:#c62828; } .pill.aviso { color:#b26a00; border-color:#b26a00; }
 </style>
 </head>
 <body>
@@ -589,6 +590,7 @@
   <button class="btn small secondary" id="dlg-share" style="margin-top:10px">Compartilhar imagem</button>
 </dialog>
 
+<script src="corpo.js"></script>
 <script>
 (() => {
   'use strict';
@@ -2675,7 +2677,8 @@
   const f1 = (n, d = 1) => (n == null || !isFinite(n)) ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   const nn = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : null; };
   const brD = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
-  const MED = [['braco', 'Braço'], ['antebraco', 'Antebraço'], ['peito', 'Peito'], ['cintura', 'Cintura'], ['abdomen', 'Abdômen'], ['quadril', 'Quadril'], ['coxa', 'Coxa'], ['panturrilha', 'Panturrilha']];
+  const MED = window.Corpo.MEDIDAS;
+  const idadeApp = a => { if (!a.nascimento) return null; const x = new Date(a.nascimento), y = new Date(a.data || Date.now()); let i = y.getFullYear() - x.getFullYear(); if (y.getMonth() < x.getMonth() || (y.getMonth() === x.getMonth() && y.getDate() < x.getDate())) i--; return i; };
   const clsIMC = i => i == null ? '' : i < 18.5 ? 'Abaixo do peso' : i < 25 ? 'Peso normal' : i < 30 ? 'Sobrepeso' : i < 35 ? 'Obesidade grau I' : i < 40 ? 'Obesidade grau II' : 'Obesidade grau III';
   async function openMyAval() {
     const box = $('#aval-body'); box.innerHTML = '<h2>Minhas avaliações</h2><p class="hint">Carregando…</p>'; $('#aval').showModal();
@@ -2687,6 +2690,7 @@
       const p = d[i + 1], dl = (x, y, un) => (x != null && y != null) ? ` <span class="hint">(${x - y > 0 ? '+' : ''}${f1(x - y)} ${un})</span>` : '', m = a.medidas || {};
       return `<article class="sess"><div class="sess-head"><h3>${esc(brD(a.data))}</h3></div>
         <p style="margin:6px 0">Peso <b>${f1(nn(a.peso))} kg</b>${dl(nn(a.peso), p && nn(p.peso), 'kg')}<br>IMC <b>${f1(a.imc)}</b> ${esc(clsIMC(a.imc))}<br>Gordura <b>${f1(a.gordura)}%</b>${dl(a.gordura, p && p.gordura, '%')}<br>Massa magra <b>${f1(a.massaMagra)} kg</b> · Massa gorda <b>${f1(a.massaGorda)} kg</b></p>
+        ${i === 0 && MED.some(([k]) => m[k]) ? Corpo.svg(m, p) + Corpo.riscosHtml(a, idadeApp(a)) : ''}
         ${MED.some(([k]) => m[k]) ? '<p class="hint" style="margin:6px 0">' + MED.filter(([k]) => m[k]).map(([k, n]) => `${n}: ${esc(m[k])} cm${p && p.medidas && p.medidas[k] ? ' (antes ' + esc(p.medidas[k]) + ')' : ''}`).join(' · ') + '</p>' : ''}
         ${a.obs ? `<p class="hint" style="margin:6px 0">Observação do professor: ${esc(a.obs)}</p>` : ''}
         ${a.fotos && Object.keys(a.fotos).length ? `<button class="btn small secondary" data-ph="${esc(a.id)}">Ver minhas fotos</button><div class="ph" id="ph-${esc(a.id)}" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px"></div>` : ''}</article>`;
