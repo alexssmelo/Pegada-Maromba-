@@ -19,7 +19,7 @@
       t += `<line x1="${sx === 'L' ? 104 : 340}" y1="${y + 9}" x2="${ax}" y2="${ay}" stroke="var(--muted,#667)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="${ax}" cy="${ay}" r="3.5" fill="var(--accent,#c62828)"/>` + leg(l, y, v, p != null ? v - p : null, sx); });
     const limb = (pts, w) => `<polyline points="${pts}" fill="none" stroke="var(--line,#d9d6e6)" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
     return `<svg viewBox="0 0 440 420" role="img" aria-label="Medidas no corpo" style="width:100%;max-width:440px;display:block;margin:8px auto">
-      <g>${limb('172,72 144,140 132,205', 22)}${limb('268,72 296,140 308,205', 22)}${limb('200,236 196,320 194,405', 38)}${limb('240,236 244,320 246,405', 38)}
+      <g>${limb('172,72 144,140 132,205', 22)}${limb('268,72 296,140 308,205', 22)}${limb('198,236 194,320 192,405', 34)}${limb('242,236 246,320 248,405', 34)}
       <path d="M178 66 C200 58 240 58 262 66 L266 130 L254 190 L258 238 L182 238 L186 190 L174 130 Z" fill="var(--line,#d9d6e6)"/><rect x="212" y="46" width="16" height="16" rx="6" fill="var(--line,#d9d6e6)"/><circle cx="220" cy="28" r="19" fill="var(--line,#d9d6e6)"/></g>${t}</svg>`;
   }
   // faixas de referência (Heyward & Stolarczyk / OMS) — orientação geral, não é diagnóstico
