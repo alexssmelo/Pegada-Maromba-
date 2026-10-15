@@ -37,6 +37,7 @@
   .muted { color:var(--muted); font-size:.92rem; }
   .err { color:var(--danger); margin-top:10px; font-weight:600; }
   .ok { color:var(--good); font-weight:600; }
+  .chk { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line); } .chk input { width:22px; height:22px; margin-top:2px; flex:none; } .chk details { flex:1; } .chk summary { cursor:pointer; list-style:none; } .sug { border:2px solid var(--accent); border-radius:12px; padding:12px; margin-bottom:12px; }
   .tabs { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
   .tabs button { background:transparent; color:var(--ink); border:1px solid var(--line); flex:1; }
   .tabs button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
@@ -129,6 +130,7 @@
     <section id="p-ficha" class="hide">
       <div class="row"><button class="sec" id="f-voltar">← Alunos</button><h2 id="f-titulo" style="margin:0">Ficha</h2></div>
       <div class="card">
+        <div id="f-sug"></div>
         <label for="f-nome">Nome da ficha</label><input id="f-nome" placeholder="Ex.: Hipertrofia — fase 1">
         <div class="row" id="f-row-copiar" style="margin-top:12px">
           <div class="grow"><select id="f-copiar"><option value="">Copiar ficha de outro aluno…</option></select></div><button class="sec" id="f-copiar-ok">Copiar</button>
@@ -482,7 +484,8 @@ async function abrirFicha(uid) {
   $('f-titulo').textContent = 'Ficha de ' + F.nome; $('f-msg').textContent = ''; modoEditor(false);
   $('f-copiar').innerHTML = '<option value="">Copiar ficha de outro aluno…</option>' + alunos.filter(x => x.uid !== uid).map(x => `<option value="${esc(x.uid)}">${esc(x.nome || x.email)}</option>`).join('');
   $('f-modelo').innerHTML = opModelos();
-  $('f-recado').value = ''; $('f-recado-msg').textContent = '';
+  $('f-recado').value = ''; $('f-recado-msg').textContent = ''; $('f-sug').innerHTML = '';
+  FS.getDocs(FS.collection(db, ...apath(uid, 'assessments'))).then(s => { if (!F || F.uid !== uid) return; const L = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((x, y) => String(x.data).localeCompare(String(y.data))); mostrarSugestao(a, L); }).catch(() => mostrarSugestao(a, []));
   document.querySelector('.tabs').classList.add('hide'); aba('ficha'); desenharFicha();
   FS.getDoc(FS.doc(db, 'gyms', gymId, 'students', uid, 'plans', 'recado')).then(d => { if (d.exists() && F && F.uid === uid) $('f-recado').value = d.data().texto || ''; }).catch(() => {});
   try {
@@ -497,17 +500,54 @@ async function abrirFicha(uid) {
 const CATS = [...new Set(PRONTOS.map(x => x.cat))];
 const opModelos = () => { const meus = (F && F.modelos) || [];
   return '<option value="">Usar um modelo…</option>' + (meus.length ? '<optgroup label="Meus modelos">' + meus.map(x => `<option value="${esc(x.id)}">${esc(x.nome || 'Modelo')}</option>`).join('') + '</optgroup>' : '')
-    + CATS.map(c => `<optgroup label="Prontos · ${esc(c)}">` + PRONTOS.map((x, i) => x.cat === c ? `<option value="pronto:${i}">${esc(x.nome)}</option>` : '').join('') + '</optgroup>').join(''); };
+    + CATS.filter(c => PRONTOS.some(x => x.cat === c && ativo(x))).map(c => `<optgroup label="Prontos · ${esc(c)}">` + PRONTOS.map((x, i) => x.cat === c && ativo(x) ? `<option value="pronto:${i}">${esc(x.nome)}</option>` : '').join('') + '</optgroup>').join(''); };
+const ativo = x => !((gym && gym.prontosOff) || []).includes(x.id);
+function sugerirModelo(st, L) {
+  const a = L[L.length - 1] || null, c = a ? calcular(a) : {}, sexo = (a && a.sexo) || st.sexo || 'M';
+  const idade = idadeEm((a && a.nascimento) || st.nascimento, null), treinos = st.treinos || 0, meta = st.meta && st.meta.tipo;
+  const rc = a ? Corpo.riscos(a, idade) : [], risco = rc.find(x => x.cl === 'up'), por = [];
+  let ids;
+  if (idade != null && idade >= 60) { ids = ['60-forca-e-equilibrio', 'adaptacao-corpo-inteiro']; por.push(idade + ' anos'); }
+  else if ((c.gordura != null && c.gordura >= (sexo === 'F' ? 32 : 25)) || (c.imc != null && c.imc >= 30) || risco || meta === 'gordura' || meta === 'peso' || meta === 'cintura') {
+    ids = ['emagrecimento-circuito-na-academia', 'funcional-semana-em-circuito', 'resistencia-muscular-corpo-inteiro', 'iniciante-ab-corpo-inteiro'];
+    if (c.gordura != null && c.gordura >= (sexo === 'F' ? 32 : 25)) por.push('gordura de ' + f1(c.gordura) + '%'); if (c.imc != null && c.imc >= 30) por.push('IMC ' + f1(c.imc) + ' (' + classeIMC(c.imc) + ')');
+    if (risco) por.push(risco.t.toLowerCase() + ': ' + risco.c.toLowerCase()); if (meta === 'gordura' || meta === 'peso' || meta === 'cintura') por.push('meta de reduzir ' + (meta === 'gordura' ? '% de gordura' : meta));
+    if (treinos < 8 && ids[0] !== 'iniciante-ab-corpo-inteiro') por.push('poucos treinos no app');
+  } else if (treinos < 8) { ids = ['iniciante-ab-corpo-inteiro', 'adaptacao-corpo-inteiro']; por.push('ainda com poucos treinos registrados no app (' + treinos + ')'); }
+  else { ids = ['hipertrofia-superior-e-inferior-ab', 'hipertrofia-abc-empurrar-puxar-pernas', 'hipertrofia-abcd']; por.push(meta === 'massaMagra' ? 'meta de ganhar massa magra' : 'composição corporal adequada e treino em dia'); }
+  const m = ids.map(id => PRONTOS.find(x => x.id === id)).find(x => x && ativo(x)); if (!m) return null;
+  return { m, i: PRONTOS.indexOf(m), por, semAval: !a };
+}
+function mostrarSugestao(st, L) {
+  const s = sugerirModelo(st, L), box = $('f-sug'); if (!s) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="sug"><div class="muted">Sugestão pela avaliação</div><b>${esc(s.m.nome)}</b><div class="muted" style="font-size:.85rem;margin:4px 0">${s.semAval ? 'Sem avaliação física ainda: sugestão só pelo histórico. ' : ''}Motivo: ${esc(s.por.join(', '))}.</div>
+    <button class="sec" id="f-sug-ok" data-i="${s.i}">Usar esta sugestão</button> <span class="muted" style="font-size:.8rem">É só uma sugestão: ajuste ao aluno.</span></div>`;
+  $('f-sug-ok').onclick = () => { if (F.plano.dias.some(d => d.ex.some(e => String(e.n || '').trim())) && !confirm('Substituir a ficha atual pela sugestão?')) return; const m = PRONTOS[s.i];
+    F.plano = { nome: m.nome, dias: m.dias.map(x => ({ ...x, ex: x.ex.map(e => ({ ...e })) })) }; desenharFicha(); fmsg(m.desc + ' Modelo aplicado. Lembre de salvar.'); };
+}
 function fecharFicha() { const mod = F && F.modo === 'modelo'; F = null; document.querySelector('.tabs').classList.remove('hide'); if (mod) { listarModelos(); aba('modelos'); } else aba('alunos'); }
-function modoEditor(mod) { ['f-row-copiar', 'f-card-recado', 'f-modelo-salvar'].forEach(i => $(i).classList.toggle('hide', mod)); $('f-salvar').textContent = mod ? 'Salvar modelo' : 'Salvar ficha'; $('f-voltar').textContent = mod ? '← Modelos' : '← Alunos'; }
+function modoEditor(mod) { ['f-row-copiar', 'f-card-recado', 'f-modelo-salvar', 'f-sug'].forEach(i => $(i).classList.toggle('hide', mod)); $('f-salvar').textContent = mod ? 'Salvar modelo' : 'Salvar ficha'; $('f-voltar').textContent = mod ? '← Modelos' : '← Alunos'; }
 let MODELOS = [];
 async function listarModelos() {
   const box = $('m-lista'); $('m-err').textContent = '';
   try { const m = await FS.getDocs(FS.collection(db, 'gyms', gymId, 'templates')); MODELOS = m.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')); } catch (e) { $('m-err').textContent = erro(e); }
   const item = (m, pronto, i) => `<div class="card aluno"><div class="grow" style="flex:1 1 160px"><div class="nome">${esc(m.nome || 'Modelo')}</div><div class="muted">${m.dias.length} dia(s) · ${m.dias.reduce((s, d) => s + d.ex.length, 0)} exercícios</div>${m.desc ? `<div class="muted" style="font-size:.85rem;margin-top:4px">${esc(m.desc)}</div>` : ''}</div>
     <div class="btns">${pronto ? `<button data-m="copiar" data-i="${i}">Copiar para meus modelos</button>` : `<button data-m="editar" data-i="${i}">Editar</button><button class="sec" data-m="dup" data-i="${i}">Duplicar</button><button class="danger" data-m="rm" data-i="${i}">Excluir</button>`}</div></div>`;
-  box.innerHTML = '<h3>Meus modelos</h3>' + (MODELOS.length ? MODELOS.map((m, i) => item(m, false, i)).join('') : '<p class="muted">Você ainda não criou modelos. Toque em Novo modelo ou copie um modelo pronto abaixo.</p>') + '<h3>Modelos prontos</h3><p class="muted">Ponto de partida baseado nas recomendações do ACSM (2009 e 2026). Copie para seus modelos e ajuste para cada aluno.</p>' + CATS.map(c => `<h3 style="margin-top:18px">${esc(c)}</h3>` + PRONTOS.map((m, i) => m.cat === c ? item(m, true, i) : '').join('')).join('');
+  const dono = gym.role === 'owner';
+  const linha = (m, i) => `<div class="chk"><input type="checkbox" data-pr="${esc(m.id)}" ${ativo(m) ? 'checked' : ''} ${dono ? '' : 'disabled'} aria-label="Usar ${esc(m.nome)}">
+    <details><summary><b>${esc(m.nome)}</b> <span class="muted">· ${m.dias.length} dia(s)</span></summary><div class="muted" style="font-size:.85rem;margin:6px 0">${esc(m.desc || '')}</div>
+      ${m.dias.map(d => `<div style="font-size:.85rem;margin:4px 0"><b>${esc(d.nome)}</b>: ${d.ex.map(e => esc(e.n) + ' ' + e.s + 'x' + esc(e.r)).join(' · ')}</div>`).join('')}
+      <button class="sec" style="margin-top:6px" data-m="copiar" data-i="${i}">Editar uma cópia</button></details></div>`;
+  box.innerHTML = '<h3>Meus modelos</h3>' + (MODELOS.length ? MODELOS.map((m, i) => item(m, false, i)).join('') : '<p class="muted">Você ainda não criou modelos. Toque em Novo modelo.</p>')
+    + `<div class="card"><h2>Modelos prontos</h2><p class="muted">Marque os que a academia usa. Só os marcados aparecem na ficha do aluno e nas sugestões. Toque no nome para ver os exercícios. Baseados nas recomendações do ACSM (2009 e 2026).</p>${dono ? '' : '<p class="muted">Só o dono da academia muda essa seleção.</p>'}
+      ${CATS.map(c => `<h3 style="margin-top:14px">${esc(c)}</h3>` + PRONTOS.map((m, i) => m.cat === c ? linha(m, i) : '').join('')).join('')}<div class="ok" id="m-ok"></div></div>`;
 }
+$('m-lista').addEventListener('change', async ev => {
+  const c = ev.target.closest('[data-pr]'); if (!c) return; const off = new Set(gym.prontosOff || []);
+  if (c.checked) off.delete(c.dataset.pr); else off.add(c.dataset.pr);
+  try { await FS.updateDoc(FS.doc(db, 'gyms', gymId), { prontosOff: [...off] }); gym.prontosOff = [...off]; $('m-ok').textContent = 'Seleção salva.'; }
+  catch (e) { c.checked = !c.checked; $('m-err').textContent = erro(e); }
+});
 function abrirEditorModelo(m) {
   F = { uid: null, modo: 'modelo', modeloId: m.id || null, nome: '', plano: { nome: m.nome || '', dias: (m.dias && m.dias.length ? m.dias : [novoDia(0)]).map(x => ({ ...x, ex: (x.ex || []).map(e => ({ ...e })) })) }, modelos: MODELOS };
   $('f-titulo').textContent = m.id ? 'Editar modelo' : 'Novo modelo'; $('f-msg').textContent = ''; modoEditor(true); $('f-modelo').innerHTML = opModelos();

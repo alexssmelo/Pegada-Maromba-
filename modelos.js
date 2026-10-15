@@ -1,6 +1,7 @@
 // Modelos prontos de treino (ponto de partida; o professor ajusta para cada aluno).
 export const PRONTOS = [
 {
+"id": "adaptacao-corpo-inteiro",
 "cat": "Iniciante / adaptação",
 "nome": "Adaptação · Corpo inteiro",
 "desc": "Primeiras 4–6 semanas. 2 a 3 vezes por semana, em dias alternados. Carga leve a moderada, aprendendo a técnica.",
@@ -70,6 +71,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "iniciante-ab-corpo-inteiro",
 "cat": "Iniciante / adaptação",
 "nome": "Iniciante · AB corpo inteiro",
 "desc": "3 vezes por semana alternando A e B (A-B-A, depois B-A-B). Termine cada série com 2 a 3 repetições sobrando.",
@@ -173,6 +175,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "hipertrofia-abcd",
 "cat": "Hipertrofia",
 "nome": "Hipertrofia · ABCD",
 "desc": "4 vezes por semana, um grupo muscular por dia. Modelo do app original.",
@@ -393,6 +396,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "hipertrofia-abc-empurrar-puxar-pernas",
 "cat": "Hipertrofia",
 "nome": "Hipertrofia · ABC (empurrar, puxar, pernas)",
 "desc": "3 a 6 vezes por semana (ABC ou ABCABC). 8 a 12 repetições perto da falha, cerca de 10 séries por músculo na semana.",
@@ -551,6 +555,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "hipertrofia-superior-e-inferior-ab",
 "cat": "Hipertrofia",
 "nome": "Hipertrofia · Superior e inferior (AB)",
 "desc": "4 vezes por semana (A-B, descanso, A-B). Cada músculo treinado 2 vezes na semana.",
@@ -668,6 +673,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "treino-a-peito-e-triceps",
 "cat": "Hipertrofia",
 "nome": "Treino A · Peito e tríceps",
 "desc": "Um dia do modelo ABCD, para montar fichas mistas.",
@@ -723,6 +729,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "treino-b-pernas",
 "cat": "Hipertrofia",
 "nome": "Treino B · Pernas",
 "desc": "Um dia do modelo ABCD, para montar fichas mistas.",
@@ -785,6 +792,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "treino-c-costas-e-biceps",
 "cat": "Hipertrofia",
 "nome": "Treino C · Costas e bíceps",
 "desc": "Um dia do modelo ABCD, para montar fichas mistas.",
@@ -847,6 +855,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "treino-d-peito-e-ombros",
 "cat": "Hipertrofia",
 "nome": "Treino D · Peito e ombros",
 "desc": "Um dia do modelo ABCD, para montar fichas mistas.",
@@ -909,6 +918,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "forca-corpo-inteiro-a-b",
 "cat": "Força",
 "nome": "Força · Corpo inteiro A/B",
 "desc": "3 vezes por semana alternando A e B. Cargas altas (cerca de 80% do máximo), poucas repetições, descanso longo. Para quem já treina há pelo menos 6 meses.",
@@ -998,6 +1008,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "emagrecimento-circuito-na-academia",
 "cat": "Emagrecimento e condicionamento",
 "nome": "Emagrecimento · Circuito na academia",
 "desc": "3 vezes por semana. Faça os exercícios em sequência (circuito), 30 s de descanso entre eles e 2 min entre as voltas. Termine com 15 a 20 min de esteira ou bike em ritmo moderado.",
@@ -1074,6 +1085,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "resistencia-muscular-corpo-inteiro",
 "cat": "Emagrecimento e condicionamento",
 "nome": "Resistência muscular · Corpo inteiro",
 "desc": "2 a 3 vezes por semana. Carga leve, muitas repetições, pouco descanso.",
@@ -1143,6 +1155,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "inferiores-enfase-em-gluteos",
 "cat": "Ênfase muscular",
 "nome": "Inferiores · Ênfase em glúteos",
 "desc": "1 a 2 vezes por semana, junto com um treino de superiores.",
@@ -1205,6 +1218,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "60-forca-e-equilibrio",
 "cat": "60+ e cuidados",
 "nome": "60+ · Força e equilíbrio",
 "desc": "2 a 3 vezes por semana. Carga moderada (sobram 2 a 3 repetições), movimento lento e controlado. Ajuste com o professor conforme a liberação médica.",
@@ -1274,6 +1288,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-semana-em-circuito",
 "cat": "Funcional",
 "nome": "Funcional · Semana em circuito",
 "desc": "Peso do corpo, em circuito: faça um exercício atrás do outro e repita as voltas (o número em séries). Do app original \"Em casa\". Use 3 a 6 dias.",
@@ -1549,6 +1564,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-hiit-abdomen",
 "cat": "Funcional",
 "nome": "Funcional · HIIT + abdômen",
 "desc": "Um dia do funcional em circuito.",
@@ -1604,6 +1620,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-corpo-inteiro",
 "cat": "Funcional",
 "nome": "Funcional · Corpo inteiro",
 "desc": "Um dia do funcional em circuito.",
@@ -1659,6 +1676,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-cardio-abdomen",
 "cat": "Funcional",
 "nome": "Funcional · Cardio + abdômen",
 "desc": "Um dia do funcional em circuito.",
@@ -1728,6 +1746,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-corpo-inteiro-abdomen",
 "cat": "Funcional",
 "nome": "Funcional · Corpo inteiro + abdômen",
 "desc": "Um dia do funcional em circuito.",
@@ -1783,6 +1802,7 @@ export const PRONTOS = [
 ]
 },
 {
+"id": "funcional-hiit-40-20-abdomen",
 "cat": "Funcional",
 "nome": "Funcional · HIIT 40/20 + abdômen",
 "desc": "Um dia do funcional em circuito.",
