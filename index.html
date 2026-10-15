@@ -1301,7 +1301,8 @@
   /* ---------- academia (treinos A, B, C e D) ---------- */
   const GYM_LET = ['A', 'B', 'C', 'D'];
   const GYM_EXTRA = 'EFGHIJKL'.split('');
-  const gymLetters = g => profMode() ? Object.keys(g).sort() : [...GYM_LET, ...Object.keys(g).filter(k => GYM_EXTRA.includes(k) && g[k] && !g[k].del).sort()];
+  const gymAluno = () => { try { return !!(Acct.gym && Acct.gym.role === 'student'); } catch { return false; } };   // aluno de academia: só vê a ficha do professor
+  const gymLetters = g => (profMode() || gymAluno()) ? Object.keys(g).sort() : [...GYM_LET, ...Object.keys(g).filter(k => GYM_EXTRA.includes(k) && g[k] && !g[k].del).sort()];
   const gx = (id, n, s, r) => ({ id, n, s, r: String(r), kg: '' });
   function gymDefault() {
     return {
@@ -1366,6 +1367,7 @@
   }
   function gymGet() {
     if (profMode()) return profGym();
+    if (gymAluno()) return {};
     const g = store.get(GYM_KEY, null) || {}, d = gymDefault();
     GYM_LET.forEach(L => { if (!g[L]) g[L] = d[L]; });
     return g;
@@ -1589,7 +1591,7 @@
 
   /* ---------- tela de planos ---------- */
   const UI = { plan: 'run', wk: { run: 0, home: 0 }, gymEdit: null };
-  const planTabs = kind => `<div class="tabs three" role="group" aria-label="Escolha o plano">
+  const planTabs = kind => gymAluno() ? '' : `<div class="tabs three" role="group" aria-label="Escolha o plano">
       <button class="tab" data-a="plan" data-v="run" aria-pressed="${kind === 'run'}">Corrida</button>
       <button class="tab" data-a="plan" data-v="home" aria-pressed="${kind === 'home'}">Em casa</button>
       <button class="tab" data-a="plan" data-v="gym" aria-pressed="${kind === 'gym'}">Academia</button></div>`;
@@ -1598,6 +1600,7 @@
     const g = gymGet(), done = store.get(DONE_KEY, {});
     let h = planTabs('gym');
     if (UI.gymEdit) { $('#view-plans').innerHTML = h + renderGymEditor(g, UI.gymEdit); return; }
+    if (gymAluno() && !profMode()) { $('#view-plans').innerHTML = `<h2 class="wk-title">Sua ficha</h2><p class="wk-sub">Seu professor${gymNome() ? ' da ' + esc(gymNome()) : ''} ainda não montou sua ficha de treino. Assim que ele salvar, ela aparece aqui sozinha.</p><p class="hint">Enquanto isso, você já pode registrar caminhada, corrida ou bicicleta na aba Treino.</p>`; return; }
     const PM = profMode(), pp = PM ? store.get(PROF_KEY, {}) : null;
     h += PM ? `<h2 class="wk-title">${esc(pp.nome || 'Ficha do professor')}</h2><p class="wk-sub">Ficha montada pelo seu professor${gymNome() ? ' na ' + esc(gymNome()) : ''}. Ela atualiza sozinha quando ele mudar.</p>`
       : '<h2 class="wk-title">Treinos da academia</h2><p class="wk-sub">Toque em Editar para mudar exercícios, séries, repetições, cargas e descanso.</p>';
@@ -1652,6 +1655,7 @@
   function renderPlans() {
     if (!UI.wk.run) UI.wk.run = firstOpen('run');
     if (!UI.wk.home) UI.wk.home = firstOpen('home');
+    if (gymAluno()) UI.plan = 'gym';
     if (UI.plan === 'gym') { renderGymPlan(); return; }
     const kind = UI.plan, w = UI.wk[kind], n = kind === 'run' ? 12 : 4;
     const done = store.get(DONE_KEY, {});
@@ -2503,7 +2507,7 @@
     Acct.user = u ? { uid: u.uid, name: u.name || '', email: u.email || '' } : null;
     try { u ? localStorage.setItem('treino.lastUser', JSON.stringify(Acct.user)) : localStorage.removeItem('treino.lastUser'); } catch {}
     Acct.admin = false; Acct.gym = undefined; if (!u) { setBrand(null); Acct.me = Acct.rec = Acct.aval = null; if (typeof renderAvisos === 'function') renderAvisos(); }
-    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); loadProf(); checkinPendente(); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
+    if (u && window.TreinoCloud && window.TreinoCloud.gymInfo) window.TreinoCloud.gymInfo().then(g => { Acct.gym = g || null; setBrand(g && g.role === 'student' ? g : null); loadProf(); if (gymAluno()) renderPlans(); checkinPendente(); if ($('#acct').open) renderAcct(); }).catch(() => { Acct.gym = null; if ($('#acct').open) renderAcct(); });
     if (u && window.TreinoCloud && window.TreinoCloud.isAdmin) window.TreinoCloud.isAdmin().then(v => { Acct.admin = v; if ($('#acct').open) renderAcct(); });
     if (u) setTimeout(maybeIntro, 1200);
     if (next !== ns) {
