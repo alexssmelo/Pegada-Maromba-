@@ -106,7 +106,7 @@
     <div class="row" style="margin-top:14px"><button id="b-prof">Entrar na equipe</button></div>
     <div class="err" id="s-err2"></div>
   </div>
-  <div class="card hide" id="s-aluno"><h2>Conta de aluno</h2><p>Esta conta está ligada a uma academia como <b>aluno</b>. Para usar o painel, entre com outra conta (de professor).</p><button class="sec" id="b-sair3">Sair</button></div>
+  <div class="card hide" id="s-aluno"><h2>Conta de aluno</h2><p>Você entrou como <b id="s-aluno-email"></b>, que é uma conta de <b>aluno</b>. Para usar o painel, saia e entre com a conta de professor ou dono da academia.</p><p class="muted">Dica: o app e o painel usam o mesmo login neste navegador. Para testar os dois ao mesmo tempo, abra o painel em uma janela anônima ou em outro navegador.</p><button class="sec" id="b-sair3">Sair</button></div>
 </div>
 
 <!-- Painel -->
@@ -979,7 +979,7 @@ async function iniciar() {
   show('v-load');
   try {
     const g = await carregarAcademia();
-    if (!g) { $('s-aluno').classList.toggle('hide', !souAluno); ['s-prof'].forEach(i => $(i).classList.toggle('hide', souAluno)); document.querySelector('#v-setup > .card:first-of-type').classList.toggle('hide', souAluno); show('v-setup'); return; }
+    if (!g) { $('s-aluno').classList.toggle('hide', !souAluno); $('s-aluno-email').textContent = me.email || ''; ['s-prof'].forEach(i => $(i).classList.toggle('hide', souAluno)); document.querySelector('#v-setup > .card:first-of-type').classList.toggle('hide', souAluno); show('v-setup'); return; }
     $('t-marca').classList.toggle('hide', g.role !== 'owner'); $('t-equipe').classList.toggle('hide', g.role !== 'owner'); aplicarMarca(); $('m-user').textContent = me.displayName || me.email || '';
     document.title = g.nome + ' — painel';
     mostrarCodigo(); aba('alunos'); show('v-main'); carregarAlunos();
