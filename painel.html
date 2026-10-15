@@ -111,7 +111,7 @@
 <div id="v-main" class="hide">
   <header class="top"><span class="brand"><img id="m-logo" class="hide" alt=""><b id="m-gym">Academia</b></span><span class="row"><span class="muted" id="m-user" style="color:inherit;opacity:.8"></span><button id="b-sair2">Sair</button></span></header>
   <div class="wrap">
-    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button><button id="t-marca">Marca</button><button id="t-equipe">Equipe</button></div>
+    <div class="tabs"><button id="t-alunos" class="on">Alunos</button><button id="t-convite">Convite</button><button id="t-marca">Marca</button><button id="t-equipe">Equipe</button><button id="t-modelos">Modelos</button></div>
 
     <section id="p-alunos">
       <div class="row"><div class="grow"><input id="a-busca" placeholder="Buscar aluno por nome ou e-mail" type="search"></div>
@@ -120,18 +120,24 @@
       <div class="card" id="a-lista"><p class="muted">Carregando alunos…</p></div>
     </section>
 
+    <section id="p-modelos" class="hide">
+      <div class="card"><h2>Modelos de treino</h2><p class="muted">Crie fichas prontas sem ligar a nenhum aluno. Depois é só usá-las na ficha de qualquer aluno. O aluno nunca vê os modelos.</p>
+        <div class="row"><button id="m-novo">+ Novo modelo</button></div><div class="err" id="m-err"></div></div>
+      <div id="m-lista"></div>
+    </section>
+
     <section id="p-ficha" class="hide">
       <div class="row"><button class="sec" id="f-voltar">← Alunos</button><h2 id="f-titulo" style="margin:0">Ficha</h2></div>
       <div class="card">
         <label for="f-nome">Nome da ficha</label><input id="f-nome" placeholder="Ex.: Hipertrofia — fase 1">
-        <div class="row" style="margin-top:12px">
+        <div class="row" id="f-row-copiar" style="margin-top:12px">
           <div class="grow"><select id="f-copiar"><option value="">Copiar ficha de outro aluno…</option></select></div><button class="sec" id="f-copiar-ok">Copiar</button>
         </div>
         <div class="row" style="margin-top:8px">
           <div class="grow"><select id="f-modelo"><option value="">Usar um modelo…</option></select></div><button class="sec" id="f-modelo-ok">Usar</button>
         </div>
       </div>
-      <div class="card"><h2>Recado para o aluno</h2><p class="muted">Aparece no topo do app do aluno até ele tocar em "Entendi".</p>
+      <div class="card" id="f-card-recado"><h2>Recado para o aluno</h2><p class="muted">Aparece no topo do app do aluno até ele tocar em "Entendi".</p>
         <textarea id="f-recado" rows="2" maxlength="300" placeholder="Ex.: Troque a carga do supino esta semana." style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)"></textarea>
         <div class="row" style="margin-top:8px"><button class="sec" id="f-recado-ok">Enviar recado</button><button class="sec" id="f-recado-rm">Apagar recado</button><span id="f-recado-msg" class="ok"></span></div></div>
       <div id="f-dias"></div>
@@ -398,9 +404,9 @@ $('c-novo').onclick = async () => {
 };
 
 /* ---------- abas ---------- */
-const SECS = ['alunos', 'convite', 'marca', 'equipe', 'ficha', 'aval', 'evo', 'rel'];
-function aba(n) { SECS.forEach(x => $('p-' + x).classList.toggle('hide', x !== n)); ['alunos', 'convite', 'marca', 'equipe'].forEach(x => $('t-' + x).classList.toggle('on', x === n)); }
-$('t-alunos').onclick = () => aba('alunos'); $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-equipe').onclick = () => { abrirEquipe(); aba('equipe'); }; $('t-convite').onclick = () => { aba('convite'); desenharQR(); };
+const SECS = ['alunos', 'convite', 'marca', 'equipe', 'modelos', 'ficha', 'aval', 'evo', 'rel'];
+function aba(n) { SECS.forEach(x => $('p-' + x).classList.toggle('hide', x !== n)); ['alunos', 'convite', 'marca', 'equipe', 'modelos'].forEach(x => $('t-' + x).classList.toggle('on', x === n)); }
+$('t-alunos').onclick = () => aba('alunos'); $('t-modelos').onclick = () => { listarModelos(); aba('modelos'); }; $('t-marca').onclick = () => { abrirMarca(); aba('marca'); }; $('t-equipe').onclick = () => { abrirEquipe(); aba('equipe'); }; $('t-convite').onclick = () => { aba('convite'); desenharQR(); };
 
 
 /* ---------- marca da academia (nome, logo, cor) ---------- */
@@ -472,7 +478,7 @@ const limpaDias = dias => (dias || []).map(d => ({ nome: String(d.nome || '').sl
 async function abrirFicha(uid) {
   const a = alunos.find(x => x.uid === uid); if (!a) return;
   F = { uid, nome: a.nome || 'Aluno', plano: { nome: '', dias: [novoDia(0)] } };
-  $('f-titulo').textContent = 'Ficha de ' + F.nome; $('f-msg').textContent = '';
+  $('f-titulo').textContent = 'Ficha de ' + F.nome; $('f-msg').textContent = ''; modoEditor(false);
   $('f-copiar').innerHTML = '<option value="">Copiar ficha de outro aluno…</option>' + alunos.filter(x => x.uid !== uid).map(x => `<option value="${esc(x.uid)}">${esc(x.nome || x.email)}</option>`).join('');
   $('f-modelo').innerHTML = opModelos();
   $('f-recado').value = ''; $('f-recado-msg').textContent = '';
@@ -489,7 +495,30 @@ async function abrirFicha(uid) {
 }
 const PRONTOS = [{"nome": "ABCD · Hipertrofia (modelo pronto)", "dias": [{"nome": "Treino A · Peito e tríceps", "descanso": 60, "ex": [{"n": "Crucifixo peck deck", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo no crossover, polia baixa", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Supino com barra no banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps pulley no crossover, barra na polia alta", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps francês no crossover, corda na polia baixa", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps com barra no banco reto", "s": 3, "r": "12", "kg": "", "obs": ""}]}, {"nome": "Treino B · Pernas", "descanso": 60, "ex": [{"n": "Leg press 45, máquina articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Cadeira extensora articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Leg press horizontal, máquina articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Agachamento guiado hack", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Cadeira flexora", "s": 3, "r": "15", "kg": "", "obs": ""}, {"n": "Stiff com barra", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Flexão plantar (panturrilha)", "s": 4, "r": "15", "kg": "", "obs": ""}]}, {"nome": "Treino C · Costas e bíceps", "descanso": 60, "ex": [{"n": "Puxada com triângulo, pegada neutra", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Remada baixa com barra reta", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo inverso com halteres, banco inclinado", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Remada baixa, máquina articulada, pegada neutra", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca martelo com halteres, em pé", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca Scott com barra reta, banco Scott", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca alternada com halteres, banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}]}, {"nome": "Treino D · Peito e ombros", "descanso": 60, "ex": [{"n": "Supino vertical, máquina articulada", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo no crossover, polia alta", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Supino no Smith, banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Desenvolvimento com halteres, sentado no banco", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Elevação frontal com corda, polia baixa", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Elevação lateral unilateral na polia", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo inverso com halteres, sentado no banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}]}]}, {"nome": "Treino A · Peito e tríceps (modelo pronto)", "dias": [{"nome": "Treino A · Peito e tríceps", "descanso": 60, "ex": [{"n": "Crucifixo peck deck", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo no crossover, polia baixa", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Supino com barra no banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps pulley no crossover, barra na polia alta", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps francês no crossover, corda na polia baixa", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Tríceps com barra no banco reto", "s": 3, "r": "12", "kg": "", "obs": ""}]}]}, {"nome": "Treino B · Pernas (modelo pronto)", "dias": [{"nome": "Treino B · Pernas", "descanso": 60, "ex": [{"n": "Leg press 45, máquina articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Cadeira extensora articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Leg press horizontal, máquina articulada", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Agachamento guiado hack", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Cadeira flexora", "s": 3, "r": "15", "kg": "", "obs": ""}, {"n": "Stiff com barra", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Flexão plantar (panturrilha)", "s": 4, "r": "15", "kg": "", "obs": ""}]}]}, {"nome": "Treino C · Costas e bíceps (modelo pronto)", "dias": [{"nome": "Treino C · Costas e bíceps", "descanso": 60, "ex": [{"n": "Puxada com triângulo, pegada neutra", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Remada baixa com barra reta", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo inverso com halteres, banco inclinado", "s": 4, "r": "10", "kg": "", "obs": ""}, {"n": "Remada baixa, máquina articulada, pegada neutra", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca martelo com halteres, em pé", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca Scott com barra reta, banco Scott", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Rosca alternada com halteres, banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}]}]}, {"nome": "Treino D · Peito e ombros (modelo pronto)", "dias": [{"nome": "Treino D · Peito e ombros", "descanso": 60, "ex": [{"n": "Supino vertical, máquina articulada", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo no crossover, polia alta", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Supino no Smith, banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Desenvolvimento com halteres, sentado no banco", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Elevação frontal com corda, polia baixa", "s": 4, "r": "12", "kg": "", "obs": ""}, {"n": "Elevação lateral unilateral na polia", "s": 3, "r": "12", "kg": "", "obs": ""}, {"n": "Crucifixo inverso com halteres, sentado no banco inclinado", "s": 3, "r": "12", "kg": "", "obs": ""}]}]}];
 const opModelos = () => '<option value="">Usar um modelo…</option><optgroup label="Modelos prontos">' + PRONTOS.map((x, i) => `<option value="pronto:${i}">${esc(x.nome)}</option>`).join('') + '</optgroup>' + ((F && F.modelos) || []).map(x => `<option value="${esc(x.id)}">${esc(x.nome || 'Modelo')}</option>`).join('');
-function fecharFicha() { F = null; document.querySelector('.tabs').classList.remove('hide'); aba('alunos'); }
+function fecharFicha() { const mod = F && F.modo === 'modelo'; F = null; document.querySelector('.tabs').classList.remove('hide'); if (mod) { listarModelos(); aba('modelos'); } else aba('alunos'); }
+function modoEditor(mod) { ['f-row-copiar', 'f-card-recado', 'f-modelo-salvar'].forEach(i => $(i).classList.toggle('hide', mod)); $('f-salvar').textContent = mod ? 'Salvar modelo' : 'Salvar ficha'; $('f-voltar').textContent = mod ? '← Modelos' : '← Alunos'; }
+let MODELOS = [];
+async function listarModelos() {
+  const box = $('m-lista'); $('m-err').textContent = '';
+  try { const m = await FS.getDocs(FS.collection(db, 'gyms', gymId, 'templates')); MODELOS = m.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')); } catch (e) { $('m-err').textContent = erro(e); }
+  const item = (m, pronto, i) => `<div class="card aluno"><div class="grow" style="flex:1 1 160px"><div class="nome">${esc(m.nome || 'Modelo')}</div><div class="muted">${m.dias.length} dia(s) · ${m.dias.reduce((s, d) => s + d.ex.length, 0)} exercícios${pronto ? ' · modelo pronto' : ''}</div></div>
+    <div class="btns">${pronto ? `<button data-m="copiar" data-i="${i}">Copiar para meus modelos</button>` : `<button data-m="editar" data-i="${i}">Editar</button><button class="sec" data-m="dup" data-i="${i}">Duplicar</button><button class="danger" data-m="rm" data-i="${i}">Excluir</button>`}</div></div>`;
+  box.innerHTML = '<h3>Meus modelos</h3>' + (MODELOS.length ? MODELOS.map((m, i) => item(m, false, i)).join('') : '<p class="muted">Você ainda não criou modelos. Toque em Novo modelo ou copie um modelo pronto abaixo.</p>') + '<h3>Modelos prontos</h3>' + PRONTOS.map((m, i) => item(m, true, i)).join('');
+}
+function abrirEditorModelo(m) {
+  F = { uid: null, modo: 'modelo', modeloId: m.id || null, nome: '', plano: { nome: m.nome || '', dias: (m.dias && m.dias.length ? m.dias : [novoDia(0)]).map(x => ({ ...x, ex: (x.ex || []).map(e => ({ ...e })) })) }, modelos: MODELOS };
+  $('f-titulo').textContent = m.id ? 'Editar modelo' : 'Novo modelo'; $('f-msg').textContent = ''; modoEditor(true); $('f-modelo').innerHTML = opModelos();
+  document.querySelector('.tabs').classList.add('hide'); aba('ficha'); desenharFicha();
+}
+$('m-novo').onclick = () => abrirEditorModelo({ nome: '' });
+$('m-lista').onclick = async ev => {
+  const b = ev.target.closest('button[data-m]'); if (!b) return; const i = +b.dataset.i, a = b.dataset.m;
+  if (a === 'editar') return abrirEditorModelo(MODELOS[i]);
+  if (a === 'copiar') return abrirEditorModelo({ nome: PRONTOS[i].nome.replace(' (modelo pronto)', ''), dias: PRONTOS[i].dias });
+  if (a === 'dup') return abrirEditorModelo({ nome: (MODELOS[i].nome || 'Modelo') + ' (cópia)', dias: MODELOS[i].dias });
+  if (a === 'rm') { if (!confirm('Excluir o modelo "' + (MODELOS[i].nome || '') + '"? Fichas já enviadas a alunos não mudam.')) return;
+    try { await FS.deleteDoc(FS.doc(db, 'gyms', gymId, 'templates', MODELOS[i].id)); listarModelos(); } catch (e) { $('m-err').textContent = erro(e); } }
+};
 
 function desenharFicha() {
   $('f-nome').value = F.plano.nome || '';
@@ -535,6 +564,14 @@ const fmsg = (t, ok = true) => { $('f-msg').className = ok ? 'ok' : 'err'; $('f-
 $('f-salvar').onclick = async () => {
   const dias = limpaDias(F.plano.dias);
   if (!dias.length) return fmsg('Preencha pelo menos um exercício.', false);
+  if (F.modo === 'modelo') {
+    const nome = String(F.plano.nome || '').trim(); if (!nome) return fmsg('Dê um nome ao modelo.', false);
+    $('f-salvar').disabled = true;
+    try { const ref = F.modeloId ? FS.doc(db, 'gyms', gymId, 'templates', F.modeloId) : FS.doc(FS.collection(db, 'gyms', gymId, 'templates'));
+      await FS.setDoc(ref, { nome: nome.slice(0, 80), dias, criadoEm: new Date().toISOString(), criadoPor: me.uid }); F.modeloId = ref.id; F.plano.dias = dias; desenharFicha(); fmsg('Modelo salvo.'); $('f-titulo').textContent = 'Editar modelo'; }
+    catch (e) { fmsg(erro(e), false); }
+    $('f-salvar').disabled = false; return;
+  }
   $('f-salvar').disabled = true;
   try {
     await FS.setDoc(FS.doc(db, 'gyms', gymId, 'students', F.uid, 'plans', 'atual'), { nome: String(F.plano.nome || '').slice(0, 80), dias, atualizadoEm: new Date().toISOString(), atualizadoPor: me.uid });
