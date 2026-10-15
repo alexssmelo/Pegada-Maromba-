@@ -135,7 +135,7 @@ const CDN = `https://www.gstatic.com/firebasejs/${V}/`;
     const m = await FS.getDoc(FS.doc(db, 'gyms', gid, 'members', u.uid)); if (!m.exists()) return null;
     const g = await FS.getDoc(FS.doc(db, 'gyms', gid));
     const gd = g.exists() ? g.data() : {};
-    return { id: gid, nome: gd.nome || '', cor: gd.corDestaque || '', logo: gd.logoUrl || '', role: m.data().role, desde: m.data().criadoEm || '' };
+    return { id: gid, nome: gd.nome || '', cor: gd.corDestaque || '', fundo: gd.corFundo || '', logo: gd.logoUrl || '', role: m.data().role, desde: m.data().criadoEm || '' };
   }
   async function joinGym(code) {
     const u = auth.currentUser; if (!u) throw erroCode('auth/no-user');

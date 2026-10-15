@@ -664,7 +664,7 @@
   function savePrefs() { prefs.t = Date.now(); store.set(SET_KEY, prefs); changed(); }
   /* marca da academia (nome, logo e cor) para quem é aluno */
   let Brand = { nome: '', cor: '', logo: '' };
-  try { const b = JSON.parse(localStorage.getItem('treino.brand') || 'null'); if (b && typeof b === 'object') Brand = { nome: String(b.nome || ''), cor: String(b.cor || ''), logo: String(b.logo || '') }; } catch {}
+  try { const b = JSON.parse(localStorage.getItem('treino.brand') || 'null'); if (b && typeof b === 'object') Brand = { fundo: String(b.fundo || ''), nome: String(b.nome || ''), cor: String(b.cor || ''), logo: String(b.logo || '') }; } catch {}
   function applyBrand() {
     const br = document.querySelector('.top-row .brand'); if (!br) return;
     const h1 = br.querySelector('h1'), svg = br.querySelector('svg.logo, img.logo');
@@ -677,7 +677,7 @@
     document.title = Brand.nome || 'Treino';
   }
   function setBrand(b) {
-    Brand = b ? { nome: b.nome || '', cor: b.cor || '', logo: b.logo || '' } : { nome: '', cor: '', logo: '' };
+    Brand = b ? { nome: b.nome || '', cor: b.cor || '', logo: b.logo || '', fundo: b.fundo || '' } : { nome: '', cor: '', logo: '', fundo: '' };
     try { localStorage.setItem('treino.brand', JSON.stringify(Brand)); } catch {}
     applyBrand(); applyLook();
   }
@@ -685,9 +685,14 @@
     const r = document.documentElement;
     if (prefs.theme === 'light' || prefs.theme === 'dark') r.dataset.theme = prefs.theme; else delete r.dataset.theme;
     r.style.zoom = prefs.zoom > 1 ? String(prefs.zoom) : '';
+    // cor de fundo da academia (só quando o aluno deixou o tema em Automático)
+    const fundo = prefs.theme !== 'light' && prefs.theme !== 'dark' && /^#[0-9a-f]{6}$/i.test(Brand.fundo || '') ? paleta(Brand.fundo) : null, VARS = ['bg', 'surface', 'ink', 'muted', 'line'];
+    if (fundo) { r.dataset.theme = fundo.dark ? 'dark' : 'light'; VARS.forEach(k => r.style.setProperty('--' + k, fundo[k])); }
+    else VARS.forEach(k => r.style.removeProperty('--' + k));
+    try { document.querySelector('meta[name=theme-color]').content = fundo ? fundo.bg : '#1A0F33'; } catch {}
     const hex = /^#[0-9a-f]{6}$/i.test(prefs.accent || '') ? prefs.accent : (/^#[0-9a-f]{6}$/i.test(Brand.cor || '') ? Brand.cor : '');
     if (!hex) { r.style.removeProperty('--accent'); r.style.removeProperty('--accent-ink'); return; }
-    const dark = prefs.theme === 'dark' || (prefs.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = fundo ? fundo.dark : prefs.theme === 'dark' || (prefs.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
     const pr = ACCENTS.find(a => a[1].toLowerCase() === hex.toLowerCase());
     const col = dark ? (pr ? pr[2] : mixWhite(hex, 0.38)) : hex;
     r.style.setProperty('--accent', col);
@@ -696,6 +701,9 @@
   const ACCENTS = [['Violeta', '#6A3DF0', '#A187FF'], ['Azul', '#1D5FD8', '#6EA0FF'], ['Turquesa', '#0E8A83', '#4FD1C5'], ['Verde', '#1E8E4E', '#5FD08A'], ['Laranja', '#D4590F', '#FF9A5C'], ['Rosa', '#D6336C', '#FF7FA8'], ['Vermelho', '#D32F2F', '#FF8A80']];
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const lum = h => { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const mixC = (x, y, t) => '#' + rgb(x).map((v, i) => Math.round(v + (rgb(y)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+  const ajustaFundo = f => { const dk = lum(f) < 0.2; let t = 0, g = f; while (t < 1 && (dk ? lum(g) > 0.035 : lum(g) < 0.72)) { t += 0.05; g = mixC(f, dk ? '#000000' : '#ffffff', t); } return g; };
+  function paleta(f0) { const f = ajustaFundo(f0), dark = lum(f) < 0.2, ink = dark ? '#F4F2F8' : '#17131F'; return { dark, bg: f, surface: dark ? mixC(f, '#ffffff', 0.07) : mixC(f, '#ffffff', 0.8), ink, muted: mixC(ink, f, 0.4), line: mixC(f, ink, 0.16) }; }
   const mixWhite = (h, t) => '#' + rgb(h).map(v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('');
   applyLook(); applyBrand();
   if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook); } catch {} }
